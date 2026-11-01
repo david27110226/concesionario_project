@@ -2,6 +2,13 @@
 {% if formulario.non_field_errors %}
     <div class="alerta alerta-error">{{ formulario.non_field_errors }}</div>
 {% endif %}
+{% for campo in formulario %}
+    {% if campo.field.required and campo.field.choices|length == 1 %}
+        <div class="alerta alerta-aviso">
+            Aún no hay opciones disponibles en «{{ campo.label }}». Primero regístralas en su módulo.
+        </div>
+    {% endif %}
+{% endfor %}
 <div class="grid-formulario">
     {% for campo in formulario %}
         <div class="campo{% if campo.errors %} con-error{% endif %}">
