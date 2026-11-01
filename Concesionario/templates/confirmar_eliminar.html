@@ -1,0 +1,32 @@
+{% extends 'layout.html' %}
+
+{% block titulo_pagina %}{{ titulo }}{% endblock %}
+
+{% block encabezado %}{% endblock %}
+
+{% block contenido %}
+{% if id_cancelar %}{% url url_cancelar id_cancelar as volver %}{% else %}{% url url_cancelar as volver %}{% endif %}
+<div class="tarjeta confirmacion">
+    <div class="tarjeta-cuerpo">
+        <div class="vacio-icono">{% include 'parciales/icono.html' with nombre='alerta' %}</div>
+        <h1>{{ titulo }}</h1>
+        {% if bloqueado %}
+            <p>No es posible eliminar <span class="objeto">{{ objeto }}</span>.</p>
+            <div class="alerta alerta-aviso separado">{{ motivo }}</div>
+            <div class="acciones">
+                <a class="boton boton-secundario" href="{{ volver }}">Volver</a>
+            </div>
+        {% else %}
+            <p>¿Seguro que quieres eliminar <span class="objeto">{{ objeto }}</span>? Esta acción no se puede deshacer.</p>
+            {% if advertencia %}<div class="alerta alerta-aviso separado">{{ advertencia }}</div>{% endif %}
+            <form method="post" class="acciones">
+                {% csrf_token %}
+                <a class="boton boton-secundario" href="{{ volver }}">Cancelar</a>
+                <button type="submit" class="boton boton-peligro">
+                    {% include 'parciales/icono.html' with nombre='eliminar' %} Sí, eliminar
+                </button>
+            </form>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

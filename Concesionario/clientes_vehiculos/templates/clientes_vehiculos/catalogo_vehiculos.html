@@ -1,0 +1,44 @@
+{% extends 'layout.html' %}
+
+{% block titulo_pagina %}Vehículos{% endblock %}
+{% block miga %}Clientes y vehículos{% endblock %}
+{% block titulo %}Catálogo de vehículos{% endblock %}
+{% block subtitulo %}{{ disponibles }} disponible{{ disponibles|pluralize }} de {{ total }} en inventario.{% endblock %}
+{% block acciones %}
+    <a class="boton boton-primario" href="{% url 'clientes:crear_vehiculo' %}">
+        {% include 'parciales/icono.html' with nombre='mas' %} Nuevo vehículo
+    </a>
+{% endblock %}
+
+{% block contenido %}
+<div class="tarjeta" style="margin-bottom: 20px">
+    <form class="filtros" method="get" style="border-bottom: none">
+        <input type="search" name="q" value="{{ busqueda }}" placeholder="Buscar por marca, modelo o placa…">
+        <select name="tipo" onchange="this.form.submit()">
+            <option value="">Todos los tipos</option>
+            {% for valor, nombre in tipos %}
+                <option value="{{ valor }}" {% if valor == tipo %}selected{% endif %}>{{ nombre }}</option>
+            {% endfor %}
+        </select>
+        <select name="estado" onchange="this.form.submit()">
+            <option value="">Todos los estados</option>
+            {% for valor, nombre in estados %}
+                <option value="{{ valor }}" {% if valor == estado %}selected{% endif %}>{{ nombre }}</option>
+            {% endfor %}
+        </select>
+        <button class="boton boton-secundario" type="submit">Filtrar</button>
+    </form>
+</div>
+
+{% if vehiculos %}
+<div class="catalogo">
+    {% for vehiculo in vehiculos %}
+        {% include 'parciales/tarjeta_vehiculo.html' %}
+    {% endfor %}
+</div>
+{% else %}
+<div class="tarjeta">
+    {% include 'parciales/vacio.html' with icono='vehiculo' titulo='No hay vehículos' mensaje='Ajusta los filtros o agrega un vehículo al inventario.' %}
+</div>
+{% endif %}
+{% endblock %}

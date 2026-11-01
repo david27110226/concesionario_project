@@ -1,0 +1,95 @@
+{% extends 'layout.html' %}
+
+{% block titulo_pagina %}{{ venta.numero }}{% endblock %}
+{% block miga %}<a href="{% url 'ventas:lista_ventas' %}">Ventas</a> / Detalle{% endblock %}
+{% block titulo %}Venta {{ venta.numero }}{% endblock %}
+{% block subtitulo %}{{ venta.fecha_venta|date:"d \d\e F \d\e Y" }} · {{ venta.get_forma_pago_display }}{% endblock %}
+{% block acciones %}
+    {% if venta.estado == 'activa' %}
+        {% if not venta.facturada %}
+        <a class="boton boton-primario" href="{% url 'pagos:crear_factura' %}?venta={{ venta.numero }}">
+            {% include 'parciales/icono.html' with nombre='factura' %} Generar factura
+        </a>
+        {% endif %}
+        <a class="boton boton-secundario" href="{% url 'ventas:editar_venta' venta.id %}">
+            {% include 'parciales/icono.html' with nombre='editar' %} Editar
+        </a>
+        <form method="post" action="{% url 'ventas:anular_venta' venta.id %}" onsubmit="return confirm('¿Anular la venta? El vehículo volverá al inventario.')">
+            {% csrf_token %}
+            <button class="boton boton-secundario" type="submit">{% include 'parciales/icono.html' with nombre='x' %} Anular</button>
+        </form>
+    {% endif %}
+    <a class="boton boton-suave-peligro" href="{% url 'ventas:eliminar_venta' venta.id %}">
+        {% include 'parciales/icono.html' with nombre='eliminar' %}
+    </a>
+{% endblock %}
+
+{% block contenido %}
+{% if venta.estado == 'anulada' %}<div class="alerta alerta-error">Esta venta fue anulada; el vehículo volvió a estar disponible.</div>{% endif %}
+
+<div class="rejilla rejilla-lateral">
+    <div class="rejilla">
+        <div class="rejilla rejilla-2">
+            <div class="tarjeta">
+                <div class="tarjeta-titulo"><h2>Comprador</h2>{% if cliente %}<a href="{% url 'clientes:detalle_cliente' cliente.id %}">Ver →</a>{% endif %}</div>
+                <div class="tarjeta-cuerpo">
+                    <div class="persona">
+                        <div class="avatar">{{ venta.cliente.nombre_completo|slice:":1" }}</div>
+                        <div>
+                            <div class="fuerte">{{ venta.cliente.nombre_completo }}</div>
+                            <div class="texto-suave texto-pequeno">{{ venta.cliente.documento }} · {{ venta.cliente.telefono }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="tarjeta">
+                <div class="tarjeta-titulo"><h2>Vehículo</h2>{% if vehiculo %}<a href="{% url 'clientes:detalle_vehiculo' vehiculo.id %}">Ver →</a>{% endif %}</div>
+                <div class="tarjeta-cuerpo">
+                    <div class="persona">
+                        <div class="indicador-icono tono-rojo">{% include 'parciales/icono.html' with nombre='vehiculo' %}</div>
+                        <div>
+                            <div class="fuerte">{{ venta.vehiculo.marca }} {{ venta.vehiculo.modelo }} {{ venta.vehiculo.anio|stringformat:"d" }}</div>
+                            <div class="texto-suave texto-pequeno">Placa {{ venta.vehiculo.placa }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tarjeta">
+            <div class="tarjeta-titulo"><h2>Detalles</h2></div>
+            <div class="tarjeta-cuerpo">
+                <div class="datos">
+                    <div class="dato"><small>Asesor</small><span>{{ venta.vendedor.nombre_completo }}</span></div>
+                    <div class="dato"><small>Forma de pago</small><span>{{ venta.get_forma_pago_display }}</span></div>
+                    <div class="dato"><small>Cotización</small><span>{% if cotizacion %}<a href="{% url 'ventas:detalle_cotizacion' cotizacion.id %}">{{ cotizacion.numero }}</a>{% else %}Venta directa{% endif %}</span></div>
+                    <div class="dato"><small>Estado</small>{% include 'parciales/estado.html' with valor=venta.estado texto=venta.get_estado_display %}</div>
+                </div>
+                {% if venta.observaciones %}<div class="alerta alerta-info separado">{{ venta.observaciones|linebreaksbr }}</div>{% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="rejilla">
+        <div class="tarjeta">
+            <div class="tarjeta-cuerpo">
+                <div class="dato"><small>Valor de la venta</small></div>
+                <div class="auto-precio" style="font-size: 30px; padding-top: 0">${{ venta.precio_final|floatformat:0 }}</div>
+            </div>
+        </div>
+        <div class="tarjeta">
+            <div class="tarjeta-titulo"><h2>Factura</h2></div>
+            <div class="tarjeta-cuerpo">
+                {% if factura %}
+                    <div class="resumen-total"><span>{{ factura.numero_factura }}</span>{% include 'parciales/estado.html' with valor=factura.estado texto=factura.get_estado_display %}</div>
+                    <div class="progreso separado"><div style="width: {{ factura.porcentaje_pagado }}%"></div></div>
+                    <p class="texto-suave texto-pequeno separado">Pagado ${{ factura.total_pagado|floatformat:0 }} de ${{ factura.total|floatformat:0 }}</p>
+                    <a class="boton boton-secundario separado" href="{% url 'pagos:detalle_factura' factura.id %}">Ver factura</a>
+                {% else %}
+                    <p class="texto-suave">Esta venta aún no tiene factura.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

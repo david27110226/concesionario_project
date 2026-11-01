@@ -1,0 +1,17 @@
+<a class="auto" href="{% url 'clientes:detalle_vehiculo' vehiculo.id %}">
+    <div class="auto-imagen">
+        {% include 'parciales/icono.html' with nombre='vehiculo' %}
+        {% if vehiculo.imagen_url %}<img src="{{ vehiculo.imagen_url }}" alt="{{ vehiculo.marca }} {{ vehiculo.modelo }}" loading="lazy" onerror="this.remove()">{% endif %}
+        {% include 'parciales/estado.html' with valor=vehiculo.estado texto=vehiculo.get_estado_display %}
+    </div>
+    <div class="auto-cuerpo">
+        <h3>{{ vehiculo.marca }} {{ vehiculo.modelo }}</h3>
+        <div class="chips">
+            <span class="chip">{{ vehiculo.anio|stringformat:"d" }}</span>
+            <span class="chip">{{ vehiculo.get_tipo_display }}</span>
+            <span class="chip">{{ vehiculo.kilometraje|floatformat:0 }} km</span>
+            <span class="chip">{{ vehiculo.placa }}</span>
+        </div>
+        <div class="auto-precio">${{ vehiculo.precio|floatformat:0 }}</div>
+    </div>
+</a>

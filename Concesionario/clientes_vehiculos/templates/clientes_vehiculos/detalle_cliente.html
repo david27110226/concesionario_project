@@ -1,0 +1,120 @@
+{% extends 'layout.html' %}
+
+{% block titulo_pagina %}{{ cliente.nombre }} {{ cliente.apellido }}{% endblock %}
+{% block miga %}<a href="{% url 'clientes:lista_clientes' %}">Clientes</a> / Detalle{% endblock %}
+{% block titulo %}{{ cliente.nombre }} {{ cliente.apellido }}{% endblock %}
+{% block subtitulo %}{{ cliente.get_tipo_documento_display }} {{ cliente.documento }} · Cliente desde {{ cliente.fecha_registro|date:"F Y" }}{% endblock %}
+{% block acciones %}
+    <a class="boton boton-primario" href="{% url 'ventas:crear_cotizacion' %}?cliente={{ cliente.documento }}">
+        {% include 'parciales/icono.html' with nombre='cotizacion' %} Cotizar
+    </a>
+    <a class="boton boton-secundario" href="{% url 'clientes:editar_cliente' cliente.id %}">
+        {% include 'parciales/icono.html' with nombre='editar' %} Editar
+    </a>
+    <a class="boton boton-suave-peligro" href="{% url 'clientes:eliminar_cliente' cliente.id %}">
+        {% include 'parciales/icono.html' with nombre='eliminar' %} Eliminar
+    </a>
+{% endblock %}
+
+{% block contenido %}
+<div class="rejilla rejilla-lateral">
+    <div class="rejilla">
+        <div class="indicadores" style="margin-bottom: 0">
+            <div class="indicador">
+                <div class="indicador-icono tono-verde">{% include 'parciales/icono.html' with nombre='dinero' %}</div>
+                <div><small>Total en compras</small><strong>${{ total_compras|floatformat:0 }}</strong></div>
+            </div>
+            <div class="indicador">
+                <div class="indicador-icono tono-azul">{% include 'parciales/icono.html' with nombre='cotizacion' %}</div>
+                <div><small>Cotizaciones</small><strong>{{ cotizaciones|length }}</strong></div>
+            </div>
+            <div class="indicador">
+                <div class="indicador-icono tono-ambar">{% include 'parciales/icono.html' with nombre='factura' %}</div>
+                <div><small>Facturas</small><strong>{{ facturas|length }}</strong></div>
+            </div>
+        </div>
+
+        <div class="tarjeta">
+            <div class="tarjeta-titulo"><h2>Cotizaciones</h2><a href="{% url 'ventas:crear_cotizacion' %}?cliente={{ cliente.documento }}">+ Nueva</a></div>
+            {% if cotizaciones %}
+            <div class="tabla-contenedor">
+                <table>
+                    <thead><tr><th>Número</th><th>Vehículo</th><th>Fecha</th><th>Estado</th><th class="texto-derecha">Oferta</th></tr></thead>
+                    <tbody>
+                    {% for cotizacion in cotizaciones %}
+                        <tr class="fila-enlace" onclick="window.location='{% url 'ventas:detalle_cotizacion' cotizacion.id %}'">
+                            <td class="fuerte">{{ cotizacion.numero }}</td>
+                            <td>{{ cotizacion.vehiculo.marca }} {{ cotizacion.vehiculo.modelo }}</td>
+                            <td class="texto-suave">{{ cotizacion.fecha|date:"d M Y" }}</td>
+                            <td>{% include 'parciales/estado.html' with valor=cotizacion.estado texto=cotizacion.get_estado_display %}</td>
+                            <td class="texto-derecha monto">${{ cotizacion.precio_ofertado|floatformat:0 }}</td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+                {% include 'parciales/vacio.html' with icono='cotizacion' titulo='Sin cotizaciones' mensaje='Este cliente todavía no tiene cotizaciones.' %}
+            {% endif %}
+        </div>
+
+        <div class="tarjeta">
+            <div class="tarjeta-titulo"><h2>Compras y facturas</h2></div>
+            {% if ventas %}
+            <ul class="lista-simple">
+                {% for venta in ventas %}
+                <li>
+                    <a href="{% url 'ventas:detalle_venta' venta.id %}">
+                        <span class="fuerte">{{ venta.numero }} · {{ venta.vehiculo.marca }} {{ venta.vehiculo.modelo }} {{ venta.vehiculo.anio|stringformat:"d" }}</span><br>
+                        <span class="texto-suave texto-pequeno">{{ venta.fecha_venta|date:"d M Y" }} · {{ venta.get_forma_pago_display }}</span>
+                    </a>
+                    <span>{% include 'parciales/estado.html' with valor=venta.estado texto=venta.get_estado_display %} <span class="monto">${{ venta.precio_final|floatformat:0 }}</span></span>
+                </li>
+                {% endfor %}
+                {% for factura in facturas %}
+                <li>
+                    <a href="{% url 'pagos:detalle_factura' factura.id %}">
+                        <span class="fuerte">{{ factura.numero_factura }}</span><br>
+                        <span class="texto-suave texto-pequeno">Saldo ${{ factura.saldo|floatformat:0 }}</span>
+                    </a>
+                    {% include 'parciales/estado.html' with valor=factura.estado texto=factura.get_estado_display %}
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+                {% include 'parciales/vacio.html' with icono='venta' titulo='Sin compras' mensaje='Cuando el cliente compre un vehículo aparecerá aquí.' %}
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="tarjeta">
+        <div class="tarjeta-cuerpo">
+            <div class="perfil">
+                <div class="avatar avatar-grande">{{ cliente.nombre|slice:":1" }}{{ cliente.apellido|slice:":1" }}</div>
+                <div>
+                    <h2>{{ cliente.nombre }}</h2>
+                    <span class="texto-suave">{{ cliente.apellido }}</span>
+                </div>
+            </div>
+            <div class="datos separado">
+                <div class="dato"><small>Teléfono</small><span>{{ cliente.telefono }}</span></div>
+                <div class="dato"><small>Correo</small><span>{{ cliente.email|default:"—" }}</span></div>
+                <div class="dato"><small>Nacimiento</small><span>{{ cliente.fecha_nacimiento|date:"d M Y"|default:"—" }}</span></div>
+                <div class="dato"><small>Documento</small><span>{{ cliente.tipo_documento }} {{ cliente.documento }}</span></div>
+            </div>
+            <div class="tarjeta separado" style="box-shadow: none">
+                <div class="tarjeta-cuerpo">
+                    <div class="dato"><small>Dirección</small>
+                        {% if cliente.direccion %}
+                            <span>{{ cliente.direccion.calle }}</span><br>
+                            <span class="texto-suave">{% if cliente.direccion.barrio %}{{ cliente.direccion.barrio }}, {% endif %}{{ cliente.direccion.ciudad }}</span>
+                        {% else %}
+                            <span class="texto-suave">Sin dirección registrada</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

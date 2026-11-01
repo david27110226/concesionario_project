@@ -1,0 +1,63 @@
+{% extends 'layout.html' %}
+
+{% block titulo_pagina %}Historial de vehículos{% endblock %}
+{% block miga %}Historial{% endblock %}
+{% block titulo %}Historial de vehículos{% endblock %}
+{% block subtitulo %}Mantenimientos y propietarios anteriores, guardados dentro del historial de cada vehículo.{% endblock %}
+{% block acciones %}
+    <a class="boton boton-primario" href="{% url 'historial:crear_historial' %}">
+        {% include 'parciales/icono.html' with nombre='mas' %} Abrir historial
+    </a>
+{% endblock %}
+
+{% block contenido %}
+<div class="indicadores">
+    <div class="indicador">
+        <div class="indicador-icono tono-rojo">{% include 'parciales/icono.html' with nombre='vehiculo' %}</div>
+        <div><small>Vehículos con historial</small><strong>{{ historiales|length }}</strong></div>
+    </div>
+    <div class="indicador">
+        <div class="indicador-icono tono-azul">{% include 'parciales/icono.html' with nombre='historial' %}</div>
+        <div><small>Mantenimientos</small><strong>{{ total_mantenimientos }}</strong></div>
+    </div>
+    <div class="indicador">
+        <div class="indicador-icono tono-verde">{% include 'parciales/icono.html' with nombre='dinero' %}</div>
+        <div><small>Inversión en servicios</small><strong>${{ inversion|floatformat:0 }}</strong></div>
+    </div>
+</div>
+
+<div class="tarjeta">
+    <form class="filtros" method="get">
+        <input type="search" name="q" value="{{ busqueda }}" placeholder="Buscar por placa, marca o modelo…">
+        <button class="boton boton-secundario" type="submit">Buscar</button>
+    </form>
+    {% if historiales %}
+    <div class="tabla-contenedor">
+        <table>
+            <thead><tr><th>Vehículo</th><th>Placa</th><th>Mantenimientos</th><th>Propietarios anteriores</th><th class="texto-derecha">Costo acumulado</th></tr></thead>
+            <tbody>
+            {% for historial in historiales %}
+                <tr class="fila-enlace" onclick="window.location='{% url 'historial:detalle_historial' historial.id %}'">
+                    <td>
+                        <div class="persona">
+                            <div class="indicador-icono tono-rojo">{% include 'parciales/icono.html' with nombre='vehiculo' %}</div>
+                            <div>
+                                <div class="fuerte">{{ historial.vehiculo.marca }} {{ historial.vehiculo.modelo }}</div>
+                                <div class="texto-suave texto-pequeno">Modelo {{ historial.vehiculo.anio|stringformat:"d" }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td><span class="chip">{{ historial.vehiculo.placa }}</span></td>
+                    <td>{{ historial.mantenimientos|length }}</td>
+                    <td>{{ historial.propietarios_anteriores|length }}</td>
+                    <td class="texto-derecha monto">${{ historial.costo_total|floatformat:0 }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+        {% include 'parciales/vacio.html' with icono='historial' titulo='No hay historiales' mensaje='Abre el historial de un vehículo para registrar sus mantenimientos.' %}
+    {% endif %}
+</div>
+{% endblock %}

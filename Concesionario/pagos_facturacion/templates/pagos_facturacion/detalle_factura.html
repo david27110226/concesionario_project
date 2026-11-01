@@ -1,0 +1,103 @@
+{% extends 'layout.html' %}
+
+{% block titulo_pagina %}{{ factura.numero_factura }}{% endblock %}
+{% block miga %}<a href="{% url 'pagos:lista_facturas' %}">Facturas</a> / Detalle{% endblock %}
+{% block titulo %}Factura {{ factura.numero_factura }}{% endblock %}
+{% block subtitulo %}Emitida el {{ factura.fecha_emision|date:"d M Y" }} · Vence el {{ factura.fecha_vencimiento|date:"d M Y" }}{% endblock %}
+{% block acciones %}
+    {% if factura.estado == 'pendiente' %}
+        <a class="boton boton-primario" href="{% url 'pagos:registrar_pago' factura.id %}">
+            {% include 'parciales/icono.html' with nombre='pago' %} Registrar pago
+        </a>
+    {% endif %}
+    {% if factura.estado != 'anulada' %}
+        <a class="boton boton-secundario" href="{% url 'pagos:editar_factura' factura.id %}">
+            {% include 'parciales/icono.html' with nombre='editar' %} Editar
+        </a>
+        <form method="post" action="{% url 'pagos:anular_factura' factura.id %}" onsubmit="return confirm('¿Anular esta factura?')">
+            {% csrf_token %}
+            <button class="boton boton-secundario" type="submit">{% include 'parciales/icono.html' with nombre='x' %} Anular</button>
+        </form>
+    {% endif %}
+    <a class="boton boton-suave-peligro" href="{% url 'pagos:eliminar_factura' factura.id %}">
+        {% include 'parciales/icono.html' with nombre='eliminar' %}
+    </a>
+{% endblock %}
+
+{% block contenido %}
+{% if vencida %}<div class="alerta alerta-aviso">La factura está vencida y todavía tiene saldo pendiente.</div>{% endif %}
+{% if factura.estado == 'anulada' %}<div class="alerta alerta-error">Factura anulada.</div>{% endif %}
+
+<div class="rejilla rejilla-lateral">
+    <div class="rejilla">
+        <div class="tarjeta">
+            <div class="tarjeta-cuerpo">
+                <div class="rejilla rejilla-2">
+                    <div>
+                        <div class="dato"><small>Facturado a</small></div>
+                        <div class="fuerte">{{ factura.cliente.nombre_completo }}</div>
+                        <div class="texto-suave texto-pequeno">Doc. {{ factura.cliente.documento }}</div>
+                        <div class="texto-suave texto-pequeno">{{ factura.cliente.telefono }} · {{ factura.cliente.email|default:"sin correo" }}</div>
+                    </div>
+                    <div>
+                        <div class="dato"><small>Vehículo</small></div>
+                        <div class="fuerte">{{ factura.vehiculo.marca }} {{ factura.vehiculo.modelo }} {{ factura.vehiculo.anio|stringformat:"d" }}</div>
+                        <div class="texto-suave texto-pequeno">Placa {{ factura.vehiculo.placa }}</div>
+                        <div class="texto-suave texto-pequeno">Venta {% if venta %}<a href="{% url 'ventas:detalle_venta' venta.id %}">{{ factura.numero_venta }}</a>{% else %}{{ factura.numero_venta }}{% endif %}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tarjeta">
+            <div class="tarjeta-titulo">
+                <h2>Pagos recibidos</h2>
+                {% if factura.estado == 'pendiente' %}<a href="{% url 'pagos:registrar_pago' factura.id %}">+ Registrar</a>{% endif %}
+            </div>
+            {% if pagos %}
+            <div class="tabla-contenedor">
+                <table>
+                    <thead><tr><th>Fecha</th><th>Medio</th><th>Forma</th><th>Referencia</th><th class="texto-derecha">Monto</th><th></th></tr></thead>
+                    <tbody>
+                    {% for pago in pagos %}
+                        <tr>
+                            <td>{{ pago.fecha_pago|date:"d M Y" }}</td>
+                            <td>{{ pago.nombre_tipo }}</td>
+                            <td><span class="chip">{{ pago.nombre_forma }}</span></td>
+                            <td class="texto-suave">{{ pago.numero_referencia|default:"—" }}</td>
+                            <td class="texto-derecha monto">${{ pago.monto|floatformat:0 }}</td>
+                            <td class="texto-derecha">
+                                {% if factura.estado != 'anulada' %}
+                                <form method="post" action="{% url 'pagos:eliminar_pago' factura.id pago.indice %}" onsubmit="return confirm('¿Eliminar este pago?')">
+                                    {% csrf_token %}
+                                    <button class="boton-icono" type="submit" title="Eliminar">{% include 'parciales/icono.html' with nombre='eliminar' %}</button>
+                                </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+                {% include 'parciales/vacio.html' with icono='pago' titulo='Sin pagos' mensaje='Registra el primer abono de esta factura.' %}
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="tarjeta">
+        <div class="tarjeta-titulo"><h2>Totales</h2>{% include 'parciales/estado.html' with valor=factura.estado texto=factura.get_estado_display %}</div>
+        <div class="tarjeta-cuerpo">
+            <div class="resumen-total"><span>Subtotal</span><span class="monto">${{ factura.subtotal|floatformat:0 }}</span></div>
+            <div class="resumen-total"><span>IVA ({{ factura.iva_porcentaje|floatformat }} %)</span><span class="monto">${{ factura.impuesto_iva|floatformat:0 }}</span></div>
+            <div class="resumen-total final"><span>Total</span><span>${{ factura.total|floatformat:0 }}</span></div>
+
+            <div class="separado">
+                <div class="progreso"><div style="width: {{ factura.porcentaje_pagado }}%"></div></div>
+                <div class="resumen-total"><span>Pagado</span><span class="monto" style="color: var(--exito)">${{ factura.total_pagado|floatformat:0 }}</span></div>
+                <div class="resumen-total"><span>Saldo</span><span class="monto" style="color: var(--primario)">${{ factura.saldo|floatformat:0 }}</span></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

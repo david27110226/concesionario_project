@@ -1,0 +1,105 @@
+{% extends 'layout.html' %}
+
+{% block titulo_pagina %}{{ vehiculo.marca }} {{ vehiculo.modelo }}{% endblock %}
+{% block miga %}<a href="{% url 'clientes:catalogo_vehiculos' %}">Vehículos</a> / Detalle{% endblock %}
+{% block titulo %}{{ vehiculo.marca }} {{ vehiculo.modelo }} {{ vehiculo.anio|stringformat:"d" }}{% endblock %}
+{% block subtitulo %}Placa {{ vehiculo.placa }} · {{ vehiculo.get_condicion_display }} · Ingresó el {{ vehiculo.fecha_ingreso|date:"d M Y" }}{% endblock %}
+{% block acciones %}
+    {% if vehiculo.estado != 'vendido' %}
+    <a class="boton boton-primario" href="{% url 'ventas:crear_cotizacion' %}?placa={{ vehiculo.placa }}">
+        {% include 'parciales/icono.html' with nombre='cotizacion' %} Cotizar
+    </a>
+    {% endif %}
+    <a class="boton boton-secundario" href="{% url 'clientes:editar_vehiculo' vehiculo.id %}">
+        {% include 'parciales/icono.html' with nombre='editar' %} Editar
+    </a>
+    <a class="boton boton-suave-peligro" href="{% url 'clientes:eliminar_vehiculo' vehiculo.id %}">
+        {% include 'parciales/icono.html' with nombre='eliminar' %} Eliminar
+    </a>
+{% endblock %}
+
+{% block contenido %}
+<div class="rejilla rejilla-lateral">
+    <div class="rejilla">
+        <div class="auto-imagen portada">
+            {% include 'parciales/icono.html' with nombre='vehiculo' %}
+            {% if vehiculo.imagen_url %}<img src="{{ vehiculo.imagen_url }}" alt="{{ vehiculo.marca }} {{ vehiculo.modelo }}" onerror="this.remove()">{% endif %}
+            {% include 'parciales/estado.html' with valor=vehiculo.estado texto=vehiculo.get_estado_display %}
+        </div>
+
+        {% if vehiculo.descripcion %}
+        <div class="tarjeta"><div class="tarjeta-cuerpo"><p>{{ vehiculo.descripcion|linebreaksbr }}</p></div></div>
+        {% endif %}
+
+        <div class="tarjeta">
+            <div class="tarjeta-titulo"><h2>Cotizaciones de este vehículo</h2></div>
+            {% if cotizaciones %}
+            <ul class="lista-simple">
+                {% for cotizacion in cotizaciones %}
+                <li>
+                    <a href="{% url 'ventas:detalle_cotizacion' cotizacion.id %}">
+                        <span class="fuerte">{{ cotizacion.numero }} · {{ cotizacion.cliente.nombre_completo }}</span><br>
+                        <span class="texto-suave texto-pequeno">{{ cotizacion.fecha|date:"d M Y" }} · ${{ cotizacion.precio_ofertado|floatformat:0 }}</span>
+                    </a>
+                    {% include 'parciales/estado.html' with valor=cotizacion.estado texto=cotizacion.get_estado_display %}
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+                {% include 'parciales/vacio.html' with icono='cotizacion' titulo='Sin cotizaciones' mensaje='Nadie ha cotizado este vehículo todavía.' %}
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="rejilla">
+        <div class="tarjeta">
+            <div class="tarjeta-cuerpo">
+                <div class="dato"><small>Precio</small></div>
+                <div class="auto-precio" style="font-size: 30px; padding-top: 0">${{ vehiculo.precio|floatformat:0 }}</div>
+                <div class="datos separado">
+                    <div class="dato"><small>Tipo</small><span>{{ vehiculo.get_tipo_display }}</span></div>
+                    <div class="dato"><small>Color</small><span>{{ vehiculo.color }}</span></div>
+                    <div class="dato"><small>Kilometraje</small><span>{{ vehiculo.kilometraje|floatformat:0 }} km</span></div>
+                    <div class="dato"><small>Condición</small><span>{{ vehiculo.get_condicion_display }}</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tarjeta">
+            <div class="tarjeta-titulo"><h2>Ficha técnica</h2></div>
+            <div class="tarjeta-cuerpo">
+                {% if vehiculo.ficha_tecnica %}
+                <div class="datos">
+                    <div class="dato"><small>Motor</small><span>{{ vehiculo.ficha_tecnica.motor }}</span></div>
+                    <div class="dato"><small>Cilindraje</small><span>{{ vehiculo.ficha_tecnica.cilindraje }} cc</span></div>
+                    <div class="dato"><small>Transmisión</small><span>{{ vehiculo.ficha_tecnica.transmision|capfirst }}</span></div>
+                    <div class="dato"><small>Combustible</small><span>{{ vehiculo.ficha_tecnica.combustible|capfirst }}</span></div>
+                    <div class="dato"><small>Puertas</small><span>{{ vehiculo.ficha_tecnica.puertas }}</span></div>
+                </div>
+                {% else %}
+                    <p class="texto-suave">Sin ficha técnica.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="tarjeta">
+            <div class="tarjeta-titulo"><h2>Historial</h2></div>
+            <div class="tarjeta-cuerpo">
+                {% if historial %}
+                    <p><span class="fuerte">{{ historial.mantenimientos|length }}</span> mantenimiento{{ historial.mantenimientos|length|pluralize }} registrado{{ historial.mantenimientos|length|pluralize }}.</p>
+                    <a class="boton boton-secundario separado" href="{% url 'historial:detalle_historial' historial.id %}">Ver historial</a>
+                {% else %}
+                    <p class="texto-suave">Este vehículo aún no tiene historial.</p>
+                    <a class="boton boton-secundario separado" href="{% url 'historial:crear_historial' %}?placa={{ vehiculo.placa }}">Abrir historial</a>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if venta %}
+        <div class="alerta alerta-info">
+            Vendido en <a class="fuerte" href="{% url 'ventas:detalle_venta' venta.id %}">{{ venta.numero }}</a> a {{ venta.cliente.nombre_completo }}.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

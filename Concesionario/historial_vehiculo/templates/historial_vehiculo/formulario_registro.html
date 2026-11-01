@@ -1,0 +1,15 @@
+{% extends 'layout.html' %}
+
+{% block titulo_pagina %}{{ titulo }}{% endblock %}
+{% block miga %}<a href="{% url 'historial:lista_historiales' %}">Historial</a> / <a href="{% url 'historial:detalle_historial' historial.id %}">{{ historial.vehiculo.placa }}</a>{% endblock %}
+{% block titulo %}{{ titulo }}{% endblock %}
+{% block subtitulo %}{{ historial.vehiculo.marca }} {{ historial.vehiculo.modelo }} {{ historial.vehiculo.anio|stringformat:"d" }} · Se guarda como un objeto dentro del historial.{% endblock %}
+
+{% block contenido %}
+{% url 'historial:detalle_historial' historial.id as cancelar %}
+<div class="tarjeta formulario-tarjeta">
+    <form method="post" class="tarjeta-cuerpo">
+        {% include 'parciales/formulario.html' with url_cancelar=cancelar texto_boton='Registrar' %}
+    </form>
+</div>
+{% endblock %}

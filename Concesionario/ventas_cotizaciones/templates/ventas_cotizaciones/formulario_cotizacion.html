@@ -1,0 +1,16 @@
+{% extends 'layout.html' %}
+
+{% block titulo_pagina %}{{ titulo }}{% endblock %}
+{% block miga %}<a href="{% url 'ventas:lista_cotizaciones' %}">Cotizaciones</a> / Formulario{% endblock %}
+{% block titulo %}{{ titulo }}{% endblock %}
+{% block subtitulo %}El cliente, el vehículo y el asesor se eligen de los ya registrados; no se crean otra vez.{% endblock %}
+
+{% block contenido %}
+{% if cotizacion %}{% url 'ventas:detalle_cotizacion' cotizacion.id as cancelar %}{% else %}{% url 'ventas:lista_cotizaciones' as cancelar %}{% endif %}
+<div class="tarjeta formulario-tarjeta">
+    <form method="post" class="tarjeta-cuerpo">
+        <div class="alerta alerta-info">El precio ofertado se calcula con el precio del vehículo menos el descuento.</div>
+        {% include 'parciales/formulario.html' with url_cancelar=cancelar %}
+    </form>
+</div>
+{% endblock %}

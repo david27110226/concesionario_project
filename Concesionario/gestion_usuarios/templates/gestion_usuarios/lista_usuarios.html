@@ -1,0 +1,64 @@
+{% extends 'layout.html' %}
+
+{% block titulo_pagina %}Usuarios{% endblock %}
+{% block miga %}Administración{% endblock %}
+{% block titulo %}Usuarios{% endblock %}
+{% block subtitulo %}{{ total }} usuario{{ total|pluralize }} con acceso al sistema.{% endblock %}
+{% block acciones %}
+    <a class="boton boton-secundario" href="{% url 'usuarios:lista_roles' %}">Gestionar roles</a>
+    <a class="boton boton-primario" href="{% url 'usuarios:crear_usuario' %}">
+        {% include 'parciales/icono.html' with nombre='mas' %} Nuevo usuario
+    </a>
+{% endblock %}
+
+{% block contenido %}
+<div class="tarjeta">
+    <form class="filtros" method="get">
+        <input type="search" name="q" value="{{ busqueda }}" placeholder="Buscar por nombre, usuario o correo…">
+        <select name="cargo" onchange="this.form.submit()">
+            <option value="">Todos los cargos</option>
+            {% for valor, nombre in cargos %}
+                <option value="{{ valor }}" {% if valor == cargo %}selected{% endif %}>{{ nombre }}</option>
+            {% endfor %}
+        </select>
+        <button class="boton boton-secundario" type="submit">Buscar</button>
+    </form>
+
+    {% if usuarios %}
+    <div class="tabla-contenedor">
+        <table>
+            <thead>
+                <tr><th>Usuario</th><th>Cargo</th><th>Rol</th><th>Teléfono</th><th>Estado</th></tr>
+            </thead>
+            <tbody>
+            {% for usuario in usuarios %}
+                <tr class="fila-enlace" onclick="window.location='{% url 'usuarios:detalle_usuario' usuario.id %}'">
+                    <td>
+                        <div class="persona">
+                            <div class="avatar avatar-azul">{{ usuario.nombre|slice:":1" }}{{ usuario.apellido|slice:":1" }}</div>
+                            <div>
+                                <div class="fuerte">{{ usuario.nombre }} {{ usuario.apellido }}</div>
+                                <div class="texto-suave texto-pequeno">@{{ usuario.nombre_usuario }} · {{ usuario.email }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>{{ usuario.get_cargo_display }}</td>
+                    <td>{% if usuario.rol %}<span class="chip">{{ usuario.rol.nombre }}</span>{% else %}<span class="texto-suave">Sin rol</span>{% endif %}</td>
+                    <td>{{ usuario.telefono|default:"—" }}</td>
+                    <td>
+                        {% if usuario.activo %}
+                            {% include 'parciales/estado.html' with valor='activo' texto='Activo' %}
+                        {% else %}
+                            {% include 'parciales/estado.html' with valor='inactivo' texto='Inactivo' %}
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+        {% include 'parciales/vacio.html' with icono='usuario' titulo='No se encontraron usuarios' mensaje='Prueba con otra búsqueda o crea un usuario nuevo.' %}
+    {% endif %}
+</div>
+{% endblock %}

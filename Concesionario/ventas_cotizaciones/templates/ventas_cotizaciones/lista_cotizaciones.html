@@ -1,0 +1,49 @@
+{% extends 'layout.html' %}
+
+{% block titulo_pagina %}Cotizaciones{% endblock %}
+{% block miga %}Ventas{% endblock %}
+{% block titulo %}Cotizaciones{% endblock %}
+{% block subtitulo %}Ofertas enviadas a los clientes. Al aprobarse, el vehículo queda reservado.{% endblock %}
+{% block acciones %}
+    <a class="boton boton-primario" href="{% url 'ventas:crear_cotizacion' %}">
+        {% include 'parciales/icono.html' with nombre='mas' %} Nueva cotización
+    </a>
+{% endblock %}
+
+{% block contenido %}
+<div class="tarjeta">
+    <div class="filtros">
+        <div class="pestanas">
+            <a class="pestana {% if not estado %}activa{% endif %}" href="{% url 'ventas:lista_cotizaciones' %}">Todas</a>
+            {% for valor, nombre in estados %}
+                <a class="pestana {% if estado == valor %}activa{% endif %}" href="?estado={{ valor }}">{{ nombre }}<span>{% for clave, cantidad in resumen.items %}{% if clave == valor %}{{ cantidad }}{% endif %}{% endfor %}</span></a>
+            {% endfor %}
+        </div>
+    </div>
+    {% if cotizaciones %}
+    <div class="tabla-contenedor">
+        <table>
+            <thead><tr><th>Número</th><th>Cliente</th><th>Vehículo</th><th>Asesor</th><th>Fecha</th><th>Estado</th><th class="texto-derecha">Oferta</th></tr></thead>
+            <tbody>
+            {% for cotizacion in cotizaciones %}
+                <tr class="fila-enlace" onclick="window.location='{% url 'ventas:detalle_cotizacion' cotizacion.id %}'">
+                    <td class="fuerte">{{ cotizacion.numero }}</td>
+                    <td>{{ cotizacion.cliente.nombre_completo }}<br><span class="texto-suave texto-pequeno">{{ cotizacion.cliente.documento }}</span></td>
+                    <td>{{ cotizacion.vehiculo.marca }} {{ cotizacion.vehiculo.modelo }}<br><span class="texto-suave texto-pequeno">{{ cotizacion.vehiculo.placa }}</span></td>
+                    <td>{{ cotizacion.vendedor.nombre_completo }}</td>
+                    <td class="texto-suave">{{ cotizacion.fecha|date:"d M Y" }}</td>
+                    <td>{% include 'parciales/estado.html' with valor=cotizacion.estado texto=cotizacion.get_estado_display %}</td>
+                    <td class="texto-derecha">
+                        <span class="monto">${{ cotizacion.precio_ofertado|floatformat:0 }}</span>
+                        {% if cotizacion.descuento_porcentaje %}<br><span class="texto-suave texto-pequeno">-{{ cotizacion.descuento_porcentaje|floatformat }} %</span>{% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+        {% include 'parciales/vacio.html' with icono='cotizacion' titulo='No hay cotizaciones' mensaje='Crea una cotización para un cliente y un vehículo del inventario.' %}
+    {% endif %}
+</div>
+{% endblock %}

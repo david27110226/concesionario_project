@@ -1,0 +1,52 @@
+{% extends 'layout.html' %}
+
+{% block titulo_pagina %}Talleres{% endblock %}
+{% block miga %}Historial{% endblock %}
+{% block titulo %}Talleres aliados{% endblock %}
+{% block subtitulo %}Talleres donde se realizan los mantenimientos de los vehículos.{% endblock %}
+{% block acciones %}
+    <a class="boton boton-primario" href="{% url 'historial:crear_taller' %}">
+        {% include 'parciales/icono.html' with nombre='mas' %} Nuevo taller
+    </a>
+{% endblock %}
+
+{% block contenido %}
+<div class="tarjeta">
+    <form class="filtros" method="get">
+        <input type="search" name="q" value="{{ busqueda }}" placeholder="Buscar por nombre o ciudad…">
+        <button class="boton boton-secundario" type="submit">Buscar</button>
+    </form>
+    {% if talleres %}
+    <div class="tabla-contenedor">
+        <table>
+            <thead><tr><th>Taller</th><th>NIT</th><th>Contacto</th><th>Especialidad</th><th>Servicios</th><th class="texto-derecha">Facturado</th><th></th></tr></thead>
+            <tbody>
+            {% for taller in talleres %}
+                <tr>
+                    <td>
+                        <div class="persona">
+                            <div class="indicador-icono tono-azul">{% include 'parciales/icono.html' with nombre='taller' %}</div>
+                            <div><div class="fuerte">{{ taller.nombre }}</div><div class="texto-suave texto-pequeno">{{ taller.ciudad }}</div></div>
+                        </div>
+                    </td>
+                    <td>{{ taller.nit }}</td>
+                    <td>{{ taller.telefono }}</td>
+                    <td><span class="chip">{{ taller.get_especialidad_display }}</span></td>
+                    <td>{{ taller.servicios }}</td>
+                    <td class="texto-derecha monto">${{ taller.facturado|floatformat:0 }}</td>
+                    <td class="texto-derecha">
+                        <div class="acciones" style="justify-content: flex-end">
+                            <a class="boton boton-secundario boton-pequeno" href="{% url 'historial:editar_taller' taller.id %}">Editar</a>
+                            <a class="boton boton-suave-peligro boton-pequeno" href="{% url 'historial:eliminar_taller' taller.id %}">Eliminar</a>
+                        </div>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+        {% include 'parciales/vacio.html' with icono='taller' titulo='No hay talleres' mensaje='Registra un taller para asignarlo a los mantenimientos.' %}
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,97 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block titulo_pagina %}Panel{% endblock %} · AutoNova</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/estilos.css' %}">
+</head>
+<body>
+<div class="app">
+    <aside class="barra-lateral">
+        <a class="marca" href="{% url 'inicio' %}">
+            <span class="marca-logo">{% include 'parciales/icono.html' with nombre='vehiculo' %}</span>
+            <span><strong>AutoNova</strong><small>Concesionario</small></span>
+        </a>
+
+        {% with ns=request.resolver_match.namespace ruta=request.resolver_match.url_name %}
+        <nav class="menu">
+            <div class="menu-grupo">
+                <a class="menu-enlace {% if ruta == 'inicio' %}activo{% endif %}" href="{% url 'inicio' %}">
+                    {% include 'parciales/icono.html' with nombre='inicio' %} Inicio
+                </a>
+            </div>
+
+            <div class="menu-grupo">
+                <div class="menu-titulo">Clientes y vehículos</div>
+                <a class="menu-enlace {% if ns == 'clientes' and 'cliente' in ruta %}activo{% endif %}" href="{% url 'clientes:lista_clientes' %}">
+                    {% include 'parciales/icono.html' with nombre='clientes' %} Clientes
+                </a>
+                <a class="menu-enlace {% if ns == 'clientes' and 'vehiculo' in ruta %}activo{% endif %}" href="{% url 'clientes:catalogo_vehiculos' %}">
+                    {% include 'parciales/icono.html' with nombre='vehiculo' %} Vehículos
+                </a>
+            </div>
+
+            <div class="menu-grupo">
+                <div class="menu-titulo">Historial</div>
+                <a class="menu-enlace {% if ns == 'historial' and 'taller' not in ruta %}activo{% endif %}" href="{% url 'historial:lista_historiales' %}">
+                    {% include 'parciales/icono.html' with nombre='historial' %} Mantenimientos
+                </a>
+                <a class="menu-enlace {% if ns == 'historial' and 'taller' in ruta %}activo{% endif %}" href="{% url 'historial:lista_talleres' %}">
+                    {% include 'parciales/icono.html' with nombre='taller' %} Talleres
+                </a>
+            </div>
+
+            <div class="menu-grupo">
+                <div class="menu-titulo">Ventas</div>
+                <a class="menu-enlace {% if ns == 'ventas' and 'cotizacion' in ruta %}activo{% endif %}" href="{% url 'ventas:lista_cotizaciones' %}">
+                    {% include 'parciales/icono.html' with nombre='cotizacion' %} Cotizaciones
+                </a>
+                <a class="menu-enlace {% if ns == 'ventas' and 'cotizacion' not in ruta %}activo{% endif %}" href="{% url 'ventas:lista_ventas' %}">
+                    {% include 'parciales/icono.html' with nombre='venta' %} Ventas
+                </a>
+            </div>
+
+            <div class="menu-grupo">
+                <div class="menu-titulo">Pagos y facturación</div>
+                <a class="menu-enlace {% if ns == 'pagos' and ruta != 'lista_pagos' %}activo{% endif %}" href="{% url 'pagos:lista_facturas' %}">
+                    {% include 'parciales/icono.html' with nombre='factura' %} Facturas
+                </a>
+                <a class="menu-enlace {% if ruta == 'lista_pagos' %}activo{% endif %}" href="{% url 'pagos:lista_pagos' %}">
+                    {% include 'parciales/icono.html' with nombre='pago' %} Pagos recibidos
+                </a>
+            </div>
+
+            <div class="menu-grupo">
+                <div class="menu-titulo">Administración</div>
+                <a class="menu-enlace {% if ns == 'usuarios' and 'rol' not in ruta %}activo{% endif %}" href="{% url 'usuarios:lista_usuarios' %}">
+                    {% include 'parciales/icono.html' with nombre='usuario' %} Usuarios
+                </a>
+                <a class="menu-enlace {% if ns == 'usuarios' and 'rol' in ruta %}activo{% endif %}" href="{% url 'usuarios:lista_roles' %}">
+                    {% include 'parciales/icono.html' with nombre='rol' %} Roles
+                </a>
+            </div>
+        </nav>
+        {% endwith %}
+    </aside>
+
+    <main class="contenido">
+        {% block encabezado %}
+        <header class="encabezado">
+            <div>
+                <div class="miga">{% block miga %}{% endblock %}</div>
+                <h1>{% block titulo %}{% endblock %}</h1>
+                <p class="subtitulo">{% block subtitulo %}{% endblock %}</p>
+            </div>
+            <div class="acciones">{% block acciones %}{% endblock %}</div>
+        </header>
+        {% endblock %}
+
+        {% block contenido %}{% endblock %}
+    </main>
+</div>
+</body>
+</html>

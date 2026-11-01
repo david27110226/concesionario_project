@@ -1,0 +1,103 @@
+{% extends 'layout.html' %}
+
+{% block titulo_pagina %}{{ usuario.nombre_usuario }}{% endblock %}
+{% block miga %}<a href="{% url 'usuarios:lista_usuarios' %}">Usuarios</a> / Detalle{% endblock %}
+{% block titulo %}{{ usuario.nombre }} {{ usuario.apellido }}{% endblock %}
+{% block subtitulo %}@{{ usuario.nombre_usuario }} · {{ usuario.get_cargo_display }}{% endblock %}
+{% block acciones %}
+    <form method="post" action="{% url 'usuarios:cambiar_estado_usuario' usuario.id %}">
+        {% csrf_token %}
+        <button class="boton boton-secundario" type="submit">{% if usuario.activo %}Desactivar{% else %}Activar{% endif %}</button>
+    </form>
+    <a class="boton boton-secundario" href="{% url 'usuarios:editar_usuario' usuario.id %}">
+        {% include 'parciales/icono.html' with nombre='editar' %} Editar
+    </a>
+    <a class="boton boton-suave-peligro" href="{% url 'usuarios:eliminar_usuario' usuario.id %}">
+        {% include 'parciales/icono.html' with nombre='eliminar' %} Eliminar
+    </a>
+{% endblock %}
+
+{% block contenido %}
+<div class="indicadores">
+    <div class="indicador">
+        <div class="indicador-icono tono-verde">{% include 'parciales/icono.html' with nombre='dinero' %}</div>
+        <div><small>Total vendido</small><strong>${{ total_vendido|floatformat:0 }}</strong></div>
+    </div>
+    <div class="indicador">
+        <div class="indicador-icono tono-rojo">{% include 'parciales/icono.html' with nombre='venta' %}</div>
+        <div><small>Ventas</small><strong>{{ cantidad_ventas }}</strong></div>
+    </div>
+    <div class="indicador">
+        <div class="indicador-icono tono-azul">{% include 'parciales/icono.html' with nombre='cotizacion' %}</div>
+        <div><small>Cotizaciones</small><strong>{{ cantidad_cotizaciones }}</strong></div>
+    </div>
+</div>
+
+<div class="rejilla rejilla-lateral">
+    <div class="rejilla">
+        <div class="tarjeta">
+            <div class="tarjeta-titulo"><h2>Últimas ventas</h2></div>
+            {% if ventas %}
+            <ul class="lista-simple">
+                {% for venta in ventas %}
+                <li>
+                    <a href="{% url 'ventas:detalle_venta' venta.id %}">
+                        <span class="fuerte">{{ venta.numero }} · {{ venta.cliente.nombre_completo }}</span><br>
+                        <span class="texto-suave texto-pequeno">{{ venta.vehiculo.marca }} {{ venta.vehiculo.modelo }} · {{ venta.fecha_venta|date:"d M Y" }}</span>
+                    </a>
+                    <span class="monto">${{ venta.precio_final|floatformat:0 }}</span>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+                {% include 'parciales/vacio.html' with icono='venta' titulo='Sin ventas' mensaje='Este usuario aún no registra ventas.' %}
+            {% endif %}
+        </div>
+        <div class="tarjeta">
+            <div class="tarjeta-titulo"><h2>Últimas cotizaciones</h2></div>
+            {% if cotizaciones %}
+            <ul class="lista-simple">
+                {% for cotizacion in cotizaciones %}
+                <li>
+                    <a href="{% url 'ventas:detalle_cotizacion' cotizacion.id %}">
+                        <span class="fuerte">{{ cotizacion.numero }} · {{ cotizacion.cliente.nombre_completo }}</span><br>
+                        <span class="texto-suave texto-pequeno">{{ cotizacion.vehiculo.marca }} {{ cotizacion.vehiculo.modelo }}</span>
+                    </a>
+                    {% include 'parciales/estado.html' with valor=cotizacion.estado texto=cotizacion.get_estado_display %}
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+                {% include 'parciales/vacio.html' with icono='cotizacion' titulo='Sin cotizaciones' mensaje='Este usuario aún no registra cotizaciones.' %}
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="tarjeta">
+        <div class="tarjeta-cuerpo">
+            <div class="perfil">
+                <div class="avatar avatar-grande avatar-azul">{{ usuario.nombre|slice:":1" }}{{ usuario.apellido|slice:":1" }}</div>
+                <div>
+                    <h2>{{ usuario.nombre }}</h2>
+                    {% if usuario.activo %}
+                        {% include 'parciales/estado.html' with valor='activo' texto='Activo' %}
+                    {% else %}
+                        {% include 'parciales/estado.html' with valor='inactivo' texto='Inactivo' %}
+                    {% endif %}
+                </div>
+            </div>
+            <div class="datos separado">
+                <div class="dato"><small>Correo</small><span>{{ usuario.email }}</span></div>
+                <div class="dato"><small>Teléfono</small><span>{{ usuario.telefono|default:"—" }}</span></div>
+                <div class="dato"><small>Rol</small><span>{{ usuario.rol.nombre|default:"Sin rol" }}</span></div>
+                <div class="dato"><small>Cargo</small><span>{{ usuario.get_cargo_display }}</span></div>
+                <div class="dato"><small>Creado</small><span>{{ usuario.fecha_creacion|date:"d M Y" }}</span></div>
+                <div class="dato"><small>Actualizado</small><span>{{ usuario.fecha_actualizacion|date:"d M Y H:i" }}</span></div>
+            </div>
+            {% if usuario.rol.descripcion %}
+                <div class="alerta alerta-info separado">{{ usuario.rol.descripcion }}</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

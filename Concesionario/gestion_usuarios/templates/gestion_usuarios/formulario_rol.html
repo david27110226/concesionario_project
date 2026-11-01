@@ -1,0 +1,15 @@
+{% extends 'layout.html' %}
+
+{% block titulo_pagina %}{{ titulo }}{% endblock %}
+{% block miga %}<a href="{% url 'usuarios:lista_roles' %}">Roles</a> / Formulario{% endblock %}
+{% block titulo %}{{ titulo }}{% endblock %}
+{% block subtitulo %}Selecciona los módulos a los que tendrá acceso este rol.{% endblock %}
+
+{% block contenido %}
+{% url 'usuarios:lista_roles' as cancelar %}
+<div class="tarjeta formulario-tarjeta">
+    <form method="post" class="tarjeta-cuerpo">
+        {% include 'parciales/formulario.html' with url_cancelar=cancelar %}
+    </form>
+</div>
+{% endblock %}

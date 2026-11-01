@@ -1,0 +1,92 @@
+{% extends 'layout.html' %}
+
+{% block titulo_pagina %}{{ cotizacion.numero }}{% endblock %}
+{% block miga %}<a href="{% url 'ventas:lista_cotizaciones' %}">Cotizaciones</a> / Detalle{% endblock %}
+{% block titulo %}Cotización {{ cotizacion.numero }}{% endblock %}
+{% block subtitulo %}Emitida el {{ cotizacion.fecha|date:"d M Y" }} · Vigente hasta el {{ vence|date:"d M Y" }}{% endblock %}
+{% block acciones %}
+    {% if cotizacion.estado == 'pendiente' %}
+        <form method="post" action="{% url 'ventas:cambiar_estado_cotizacion' cotizacion.id 'aprobada' %}">
+            {% csrf_token %}
+            <button class="boton boton-exito" type="submit">{% include 'parciales/icono.html' with nombre='check' %} Aprobar</button>
+        </form>
+        <form method="post" action="{% url 'ventas:cambiar_estado_cotizacion' cotizacion.id 'rechazada' %}">
+            {% csrf_token %}
+            <button class="boton boton-secundario" type="submit">{% include 'parciales/icono.html' with nombre='x' %} Rechazar</button>
+        </form>
+    {% elif cotizacion.estado == 'rechazada' %}
+        <form method="post" action="{% url 'ventas:cambiar_estado_cotizacion' cotizacion.id 'pendiente' %}">
+            {% csrf_token %}
+            <button class="boton boton-secundario" type="submit">Reabrir</button>
+        </form>
+    {% endif %}
+    {% if cotizacion.estado == 'aprobada' or cotizacion.estado == 'pendiente' %}
+        <a class="boton boton-primario" href="{% url 'ventas:vender_cotizacion' cotizacion.id %}">
+            {% include 'parciales/icono.html' with nombre='venta' %} Convertir en venta
+        </a>
+    {% endif %}
+    {% if cotizacion.estado != 'vendida' %}
+        <a class="boton boton-secundario" href="{% url 'ventas:editar_cotizacion' cotizacion.id %}">
+            {% include 'parciales/icono.html' with nombre='editar' %} Editar
+        </a>
+        <a class="boton boton-suave-peligro" href="{% url 'ventas:eliminar_cotizacion' cotizacion.id %}">
+            {% include 'parciales/icono.html' with nombre='eliminar' %}
+        </a>
+    {% endif %}
+{% endblock %}
+
+{% block contenido %}
+{% if vencida %}<div class="alerta alerta-aviso">Esta cotización ya superó su fecha de vigencia.</div>{% endif %}
+{% if venta %}<div class="alerta alerta-exito">Convertida en la venta <a class="fuerte" href="{% url 'ventas:detalle_venta' venta.id %}">{{ venta.numero }}</a>.</div>{% endif %}
+
+<div class="rejilla rejilla-lateral">
+    <div class="rejilla">
+        <div class="rejilla rejilla-2">
+            <div class="tarjeta">
+                <div class="tarjeta-titulo"><h2>Cliente</h2>{% if cliente %}<a href="{% url 'clientes:detalle_cliente' cliente.id %}">Ver →</a>{% endif %}</div>
+                <div class="tarjeta-cuerpo">
+                    <div class="persona">
+                        <div class="avatar">{{ cotizacion.cliente.nombre_completo|slice:":1" }}</div>
+                        <div>
+                            <div class="fuerte">{{ cotizacion.cliente.nombre_completo }}</div>
+                            <div class="texto-suave texto-pequeno">{{ cotizacion.cliente.documento }} · {{ cotizacion.cliente.telefono }}</div>
+                            <div class="texto-suave texto-pequeno">{{ cotizacion.cliente.email }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="tarjeta">
+                <div class="tarjeta-titulo"><h2>Vehículo</h2>{% if vehiculo %}<a href="{% url 'clientes:detalle_vehiculo' vehiculo.id %}">Ver →</a>{% endif %}</div>
+                <div class="tarjeta-cuerpo">
+                    <div class="persona">
+                        <div class="indicador-icono tono-rojo">{% include 'parciales/icono.html' with nombre='vehiculo' %}</div>
+                        <div>
+                            <div class="fuerte">{{ cotizacion.vehiculo.marca }} {{ cotizacion.vehiculo.modelo }} {{ cotizacion.vehiculo.anio|stringformat:"d" }}</div>
+                            <div class="texto-suave texto-pequeno">Placa {{ cotizacion.vehiculo.placa }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="tarjeta">
+            <div class="tarjeta-titulo"><h2>Notas</h2></div>
+            <div class="tarjeta-cuerpo">
+                <p class="{% if not cotizacion.notas %}texto-suave{% endif %}">{{ cotizacion.notas|default:"Sin notas adicionales."|linebreaksbr }}</p>
+                <div class="chips separado">
+                    <span class="chip">Asesor: {{ cotizacion.vendedor.nombre_completo }}</span>
+                    <span class="chip">Vigencia: {{ cotizacion.vigencia_dias }} días</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="tarjeta">
+        <div class="tarjeta-titulo"><h2>Resumen</h2>{% include 'parciales/estado.html' with valor=cotizacion.estado texto=cotizacion.get_estado_display %}</div>
+        <div class="tarjeta-cuerpo">
+            <div class="resumen-total"><span>Precio del vehículo</span><span class="monto">${{ cotizacion.precio_base|floatformat:0 }}</span></div>
+            <div class="resumen-total"><span>Descuento ({{ cotizacion.descuento_porcentaje|floatformat }} %)</span><span class="monto">-${{ ahorro|floatformat:0 }}</span></div>
+            <div class="resumen-total final"><span>Precio ofertado</span><span>${{ cotizacion.precio_ofertado|floatformat:0 }}</span></div>
+        </div>
+    </div>
+</div>
+{% endblock %}

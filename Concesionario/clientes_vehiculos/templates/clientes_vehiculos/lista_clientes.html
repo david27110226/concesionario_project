@@ -1,0 +1,49 @@
+{% extends 'layout.html' %}
+
+{% block titulo_pagina %}Clientes{% endblock %}
+{% block miga %}Clientes y vehículos{% endblock %}
+{% block titulo %}Clientes{% endblock %}
+{% block subtitulo %}{{ total }} cliente{{ total|pluralize }} registrado{{ total|pluralize }}. Cada cliente se crea una sola vez y se usa en ventas y facturas.{% endblock %}
+{% block acciones %}
+    <a class="boton boton-primario" href="{% url 'clientes:crear_cliente' %}">
+        {% include 'parciales/icono.html' with nombre='mas' %} Nuevo cliente
+    </a>
+{% endblock %}
+
+{% block contenido %}
+<div class="tarjeta">
+    <form class="filtros" method="get">
+        <input type="search" name="q" value="{{ busqueda }}" placeholder="Buscar por nombre, documento o correo…">
+        <button class="boton boton-secundario" type="submit">Buscar</button>
+        {% if busqueda %}<a class="boton boton-secundario" href="{% url 'clientes:lista_clientes' %}">Limpiar</a>{% endif %}
+    </form>
+
+    {% if clientes %}
+    <div class="tabla-contenedor">
+        <table>
+            <thead>
+                <tr><th>Cliente</th><th>Documento</th><th>Contacto</th><th>Ciudad</th><th>Registro</th></tr>
+            </thead>
+            <tbody>
+            {% for cliente in clientes %}
+                <tr class="fila-enlace" onclick="window.location='{% url 'clientes:detalle_cliente' cliente.id %}'">
+                    <td>
+                        <div class="persona">
+                            <div class="avatar">{{ cliente.nombre|slice:":1" }}{{ cliente.apellido|slice:":1" }}</div>
+                            <span class="fuerte">{{ cliente.nombre }} {{ cliente.apellido }}</span>
+                        </div>
+                    </td>
+                    <td>{{ cliente.tipo_documento }} {{ cliente.documento }}</td>
+                    <td>{{ cliente.telefono }}<br><span class="texto-suave texto-pequeno">{{ cliente.email|default:"Sin correo" }}</span></td>
+                    <td>{{ cliente.direccion.ciudad|default:"—" }}</td>
+                    <td class="texto-suave">{{ cliente.fecha_registro|date:"d M Y" }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+        {% include 'parciales/vacio.html' with icono='clientes' titulo='No se encontraron clientes' mensaje='Registra un cliente nuevo para empezar.' %}
+    {% endif %}
+</div>
+{% endblock %}

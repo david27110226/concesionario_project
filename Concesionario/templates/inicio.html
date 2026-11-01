@@ -1,0 +1,121 @@
+{% extends 'layout.html' %}
+
+{% block titulo_pagina %}Inicio{% endblock %}
+
+{% block encabezado %}{% endblock %}
+
+{% block contenido %}
+<section class="heroe">
+    <div>
+        <h1>Bienvenido a AutoNova</h1>
+        <p>Resumen del concesionario: inventario, ventas, facturación y clientes en un solo lugar.</p>
+        <div class="acciones separado">
+            <a class="boton boton-primario" href="{% url 'ventas:crear_cotizacion' %}">
+                {% include 'parciales/icono.html' with nombre='mas' %} Nueva cotización
+            </a>
+            <a class="boton boton-secundario" href="{% url 'clientes:crear_vehiculo' %}">Agregar vehículo</a>
+        </div>
+    </div>
+    <div>
+        <div class="cifra-etiqueta">Total vendido</div>
+        <div class="cifra">${{ total_vendido|floatformat:0 }}</div>
+        <div class="cifra-etiqueta">{{ cantidad_ventas }} venta{{ cantidad_ventas|pluralize }} activa{{ cantidad_ventas|pluralize }}</div>
+    </div>
+</section>
+
+<div class="indicadores">
+    <a class="indicador" href="{% url 'clientes:lista_clientes' %}">
+        <div class="indicador-icono tono-azul">{% include 'parciales/icono.html' with nombre='clientes' %}</div>
+        <div><small>Clientes</small><strong>{{ clientes }}</strong></div>
+    </a>
+    <a class="indicador" href="{% url 'clientes:catalogo_vehiculos' %}">
+        <div class="indicador-icono tono-rojo">{% include 'parciales/icono.html' with nombre='vehiculo' %}</div>
+        <div><small>Vehículos disponibles</small><strong>{{ disponibles }} <span class="texto-suave texto-pequeno">de {{ vehiculos }}</span></strong></div>
+    </a>
+    <a class="indicador" href="{% url 'pagos:lista_pagos' %}">
+        <div class="indicador-icono tono-verde">{% include 'parciales/icono.html' with nombre='dinero' %}</div>
+        <div><small>Recaudado</small><strong>${{ total_recaudado|floatformat:0 }}</strong></div>
+    </a>
+    <a class="indicador" href="{% url 'pagos:lista_facturas' %}?estado=pendiente">
+        <div class="indicador-icono tono-ambar">{% include 'parciales/icono.html' with nombre='factura' %}</div>
+        <div><small>Por cobrar</small><strong>${{ por_cobrar|floatformat:0 }}</strong></div>
+    </a>
+</div>
+
+<div class="rejilla rejilla-lateral">
+    <div class="tarjeta">
+        <div class="tarjeta-titulo">
+            <h2>Últimas ventas</h2>
+            <a href="{% url 'ventas:lista_ventas' %}">Ver todas →</a>
+        </div>
+        {% if ultimas_ventas %}
+        <div class="tabla-contenedor">
+            <table>
+                <thead><tr><th>Venta</th><th>Cliente</th><th>Vehículo</th><th class="texto-derecha">Valor</th></tr></thead>
+                <tbody>
+                {% for venta in ultimas_ventas %}
+                    <tr class="fila-enlace" onclick="window.location='{% url 'ventas:detalle_venta' venta.id %}'">
+                        <td><span class="fuerte">{{ venta.numero }}</span><br><span class="texto-suave texto-pequeno">{{ venta.fecha_venta|date:"d M Y" }}</span></td>
+                        <td>{{ venta.cliente.nombre_completo }}</td>
+                        <td>{{ venta.vehiculo.marca }} {{ venta.vehiculo.modelo }}</td>
+                        <td class="texto-derecha monto">${{ venta.precio_final|floatformat:0 }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+            {% include 'parciales/vacio.html' with icono='venta' titulo='Aún no hay ventas' mensaje='Las ventas registradas aparecerán aquí.' %}
+        {% endif %}
+    </div>
+
+    <div class="rejilla">
+        <div class="tarjeta">
+            <div class="tarjeta-titulo"><h2>Inventario</h2><a href="{% url 'clientes:catalogo_vehiculos' %}">Catálogo →</a></div>
+            <div class="tarjeta-cuerpo">
+                <div class="progreso progreso-apilado">
+                    <div class="segmento-verde" style="width: {{ porcentaje_disponibles }}%"></div>
+                    <div class="segmento-ambar" style="width: {{ porcentaje_reservados }}%"></div>
+                    <div class="segmento-azul" style="width: {{ porcentaje_vendidos }}%"></div>
+                </div>
+                <div class="leyenda">
+                    <span style="--color: var(--exito)">Disponibles {{ disponibles }}</span>
+                    <span style="--color: #f59e0b">Reservados {{ reservados }}</span>
+                    <span style="--color: var(--info)">Vendidos {{ vendidos }}</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="tarjeta">
+            <div class="tarjeta-titulo"><h2>Cotizaciones recientes</h2><a href="{% url 'ventas:lista_cotizaciones' %}">Ver →</a></div>
+            {% if ultimas_cotizaciones %}
+            <ul class="lista-simple">
+                {% for cotizacion in ultimas_cotizaciones %}
+                <li>
+                    <a href="{% url 'ventas:detalle_cotizacion' cotizacion.id %}">
+                        <span class="fuerte">{{ cotizacion.cliente.nombre_completo }}</span><br>
+                        <span class="texto-suave texto-pequeno">{{ cotizacion.numero }} · {{ cotizacion.vehiculo.marca }} {{ cotizacion.vehiculo.modelo }}</span>
+                    </a>
+                    {% include 'parciales/estado.html' with valor=cotizacion.estado texto=cotizacion.get_estado_display %}
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+                {% include 'parciales/vacio.html' with icono='cotizacion' titulo='Sin cotizaciones' mensaje='Crea la primera cotización.' %}
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% if destacados %}
+<div class="encabezado separado">
+    <div><h1 style="font-size: 20px">Vehículos disponibles</h1><p class="subtitulo">Los últimos ingresos al inventario.</p></div>
+    <div class="acciones"><a class="boton boton-secundario" href="{% url 'clientes:catalogo_vehiculos' %}">Ver catálogo completo</a></div>
+</div>
+<div class="catalogo">
+    {% for vehiculo in destacados %}
+        {% include 'parciales/tarjeta_vehiculo.html' %}
+    {% endfor %}
+</div>
+{% endif %}
+{% endblock %}
