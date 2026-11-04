@@ -1,0 +1,49 @@
+{% extends 'layout.html' %}
+
+{% block titulo_pagina %}Entregas{% endblock %}
+{% block miga %}Ventas{% endblock %}
+{% block titulo %}Entregas{% endblock %}
+{% block subtitulo %}Programacion de la entrega de los vehiculos vendidos.{% endblock %}
+{% block acciones %}
+    <a class="boton boton-primario" href="{% url 'ventas:crear_entrega' %}">
+        {% include 'parciales/icono.html' with nombre='mas' %} Programar entrega
+    </a>
+{% endblock %}
+
+{% block contenido %}
+<div class="tarjeta">
+    <div class="filtros">
+        <div class="pestanas">
+            <a class="pestana {% if not estado %}activa{% endif %}" href="{% url 'ventas:lista_entregas' %}">Todas</a>
+            {% for valor, nombre in estados %}
+                <a class="pestana {% if estado == valor %}activa{% endif %}" href="?estado={{ valor }}">{{ nombre }}<span>{% for clave, cantidad in resumen.items %}{% if clave == valor %}{{ cantidad }}{% endif %}{% endfor %}</span></a>
+            {% endfor %}
+        </div>
+    </div>
+    {% if entregas %}
+    <div class="tabla-contenedor">
+        <table>
+            <thead><tr><th>Venta</th><th>Cliente</th><th>Vehículo</th><th>Programada</th><th>Lugar</th><th>Estado</th><th></th></tr></thead>
+            <tbody>
+            {% for entrega in entregas %}
+                <tr>
+                    <td><a class="fuerte" href="{% url 'ventas:detalle_venta' entrega.venta.id %}">{{ entrega.venta.numero }}</a></td>
+                    <td>{{ entrega.venta.cliente.nombre_completo }}</td>
+                    <td>{{ entrega.venta.vehiculo.marca }} {{ entrega.venta.vehiculo.modelo }}<br><span class="texto-suave texto-pequeno">{{ entrega.venta.vehiculo.placa }}</span></td>
+                    <td class="texto-suave">{{ entrega.fecha_programada|date:"d M Y" }}{% if entrega.fecha_entrega %}<br><span class="texto-pequeno">Entregada {{ entrega.fecha_entrega|date:"d M Y" }}</span>{% endif %}</td>
+                    <td>{{ entrega.lugar }}</td>
+                    <td>{% include 'parciales/estado.html' with valor=entrega.tono texto=entrega.get_estado_display %}</td>
+                    <td class="texto-derecha">
+                        <a class="boton boton-secundario" href="{% url 'ventas:editar_entrega' entrega.id %}">{% include 'parciales/icono.html' with nombre='editar' %}</a>
+                        <a class="boton boton-suave-peligro" href="{% url 'ventas:eliminar_entrega' entrega.id %}">{% include 'parciales/icono.html' with nombre='eliminar' %}</a>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+        {% include 'parciales/vacio.html' with icono='vehiculo' titulo='No hay entregas' mensaje='Programa la entrega de un vehículo ya vendido.' %}
+    {% endif %}
+</div>
+{% endblock %}

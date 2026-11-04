@@ -1,0 +1,16 @@
+{% extends 'layout.html' %}
+
+{% block titulo_pagina %}{{ titulo }}{% endblock %}
+{% block miga %}<a href="{% url 'ventas:lista_promociones' %}">Promociones</a> / Formulario{% endblock %}
+{% block titulo %}{{ titulo }}{% endblock %}
+{% block subtitulo %}Campañas de descuento que los asesores pueden aplicar en las cotizaciones.{% endblock %}
+
+{% block contenido %}
+{% url 'ventas:lista_promociones' as cancelar %}
+<div class="tarjeta formulario-tarjeta">
+    <form method="post" class="tarjeta-cuerpo">
+        <div class="alerta alerta-info">Una promocion solo se puede aplicar mientras este activa y dentro de sus fechas.</div>
+        {% include 'parciales/formulario.html' with url_cancelar=cancelar %}
+    </form>
+</div>
+{% endblock %}

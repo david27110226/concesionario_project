@@ -3,7 +3,7 @@
 {% block titulo_pagina %}Ventas{% endblock %}
 {% block miga %}Ventas{% endblock %}
 {% block titulo %}Ventas{% endblock %}
-{% block subtitulo %}Vehículos vendidos y su estado de facturación.{% endblock %}
+{% block subtitulo %}Vehiculos vendidos y su estado de facturacion.{% endblock %}
 {% block acciones %}
     <a class="boton boton-primario" href="{% url 'ventas:crear_venta' %}">
         {% include 'parciales/icono.html' with nombre='mas' %} Registrar venta
@@ -37,7 +37,7 @@
     {% if ventas %}
     <div class="tabla-contenedor">
         <table>
-            <thead><tr><th>Venta</th><th>Cliente</th><th>Vehículo</th><th>Pago</th><th>Factura</th><th>Estado</th><th class="texto-derecha">Valor</th></tr></thead>
+            <thead><tr><th>Venta</th><th>Cliente</th><th>Vehiculo</th><th>Pago</th><th>Factura</th><th>Estado</th><th class="texto-derecha">Valor</th></tr></thead>
             <tbody>
             {% for venta in ventas %}
                 <tr class="fila-enlace" onclick="window.location='{% url 'ventas:detalle_venta' venta.id %}'">

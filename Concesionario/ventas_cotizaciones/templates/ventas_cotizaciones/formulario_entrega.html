@@ -1,0 +1,16 @@
+{% extends 'layout.html' %}
+
+{% block titulo_pagina %}{{ titulo }}{% endblock %}
+{% block miga %}<a href="{% url 'ventas:lista_entregas' %}">Entregas</a> / Formulario{% endblock %}
+{% block titulo %}{{ titulo }}{% endblock %}
+{% block subtitulo %}Programacion y confirmacion de la entrega del vehiculo vendido.{% endblock %}
+
+{% block contenido %}
+{% url 'ventas:lista_entregas' as cancelar %}
+<div class="tarjeta formulario-tarjeta">
+    <form method="post" class="tarjeta-cuerpo">
+        <div class="alerta alerta-info">Solo aparecen ventas activas. Cada venta puede tener una sola entrega vigente.</div>
+        {% include 'parciales/formulario.html' with url_cancelar=cancelar %}
+    </form>
+</div>
+{% endblock %}

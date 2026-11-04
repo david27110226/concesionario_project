@@ -31,7 +31,7 @@
     <div class="rejilla">
         <div class="rejilla rejilla-2">
             <div class="tarjeta">
-                <div class="tarjeta-titulo"><h2>Comprador</h2>{% if cliente %}<a href="{% url 'clientes:detalle_cliente' cliente.id %}">Ver →</a>{% endif %}</div>
+                <div class="tarjeta-titulo"><h2>Comprador</h2><a href="{% url 'clientes:detalle_cliente' venta.cliente.id %}">Ver →</a></div>
                 <div class="tarjeta-cuerpo">
                     <div class="persona">
                         <div class="avatar">{{ venta.cliente.nombre_completo|slice:":1" }}</div>
@@ -43,7 +43,7 @@
                 </div>
             </div>
             <div class="tarjeta">
-                <div class="tarjeta-titulo"><h2>Vehículo</h2>{% if vehiculo %}<a href="{% url 'clientes:detalle_vehiculo' vehiculo.id %}">Ver →</a>{% endif %}</div>
+                <div class="tarjeta-titulo"><h2>Vehiculo</h2><a href="{% url 'clientes:detalle_vehiculo' venta.vehiculo.id %}">Ver →</a></div>
                 <div class="tarjeta-cuerpo">
                     <div class="persona">
                         <div class="indicador-icono tono-rojo">{% include 'parciales/icono.html' with nombre='vehiculo' %}</div>
@@ -62,11 +62,49 @@
                 <div class="datos">
                     <div class="dato"><small>Asesor</small><span>{{ venta.vendedor.nombre_completo }}</span></div>
                     <div class="dato"><small>Forma de pago</small><span>{{ venta.get_forma_pago_display }}</span></div>
-                    <div class="dato"><small>Cotización</small><span>{% if cotizacion %}<a href="{% url 'ventas:detalle_cotizacion' cotizacion.id %}">{{ cotizacion.numero }}</a>{% else %}Venta directa{% endif %}</span></div>
+                    <div class="dato"><small>Cotizacion</small><span>{% if cotizacion %}<a href="{% url 'ventas:detalle_cotizacion' cotizacion.id %}">{{ cotizacion.numero }}</a>{% else %}Venta directa{% endif %}</span></div>
                     <div class="dato"><small>Estado</small>{% include 'parciales/estado.html' with valor=venta.estado texto=venta.get_estado_display %}</div>
                 </div>
                 {% if venta.observaciones %}<div class="alerta alerta-info separado">{{ venta.observaciones|linebreaksbr }}</div>{% endif %}
             </div>
+        </div>
+
+        <div class="tarjeta">
+            <div class="tarjeta-titulo"><h2>Entrega</h2>{% if venta.estado == 'activa' %}<a href="{% url 'ventas:crear_entrega' %}?venta={{ venta.id }}">+ Programar</a>{% endif %}</div>
+            {% if entregas %}
+            <ul class="lista-simple">
+                {% for entrega in entregas %}
+                <li>
+                    <span>
+                        <span class="fuerte">{{ entrega.fecha_programada|date:"d M Y" }} · {{ entrega.lugar }}</span><br>
+                        <span class="texto-suave texto-pequeno">{% if entrega.fecha_entrega %}Entregado el {{ entrega.fecha_entrega|date:"d M Y" }}{% else %}Pendiente de entregar{% endif %}</span>
+                    </span>
+                    <span>{% include 'parciales/estado.html' with valor=entrega.tono texto=entrega.get_estado_display %} <a href="{% url 'ventas:editar_entrega' entrega.id %}">Editar</a></span>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+                {% include 'parciales/vacio.html' with icono='vehiculo' titulo='Sin entrega' mensaje='Programa cuándo y dónde se entrega el vehículo.' %}
+            {% endif %}
+        </div>
+
+        <div class="tarjeta">
+            <div class="tarjeta-titulo"><h2>Garantias</h2>{% if venta.estado == 'activa' %}<a href="{% url 'ventas:crear_garantia' %}?venta={{ venta.id }}">+ Agregar</a>{% endif %}</div>
+            {% if garantias %}
+            <ul class="lista-simple">
+                {% for garantia in garantias %}
+                <li>
+                    <span>
+                        <span class="fuerte">{{ garantia.get_tipo_display }} · {{ garantia.meses }} meses</span><br>
+                        <span class="texto-suave texto-pequeno">Hasta el {{ garantia.fecha_fin|date:"d M Y" }} o {{ garantia.kilometraje_limite|floatformat:0 }} km</span>
+                    </span>
+                    <span>{% include 'parciales/estado.html' with valor=garantia.tono texto=garantia.get_estado_display %} <a href="{% url 'ventas:editar_garantia' garantia.id %}">Editar</a></span>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+                {% include 'parciales/vacio.html' with icono='rol' titulo='Sin garantías' mensaje='Esta venta todavia no tiene garantias registradas.' %}
+            {% endif %}
         </div>
     </div>
 
@@ -86,7 +124,7 @@
                     <p class="texto-suave texto-pequeno separado">Pagado ${{ factura.total_pagado|floatformat:0 }} de ${{ factura.total|floatformat:0 }}</p>
                     <a class="boton boton-secundario separado" href="{% url 'pagos:detalle_factura' factura.id %}">Ver factura</a>
                 {% else %}
-                    <p class="texto-suave">Esta venta aún no tiene factura.</p>
+                    <p class="texto-suave">Esta venta aun no tiene factura.</p>
                 {% endif %}
             </div>
         </div>

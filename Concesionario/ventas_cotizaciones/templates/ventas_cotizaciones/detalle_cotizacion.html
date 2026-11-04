@@ -2,7 +2,7 @@
 
 {% block titulo_pagina %}{{ cotizacion.numero }}{% endblock %}
 {% block miga %}<a href="{% url 'ventas:lista_cotizaciones' %}">Cotizaciones</a> / Detalle{% endblock %}
-{% block titulo %}Cotización {{ cotizacion.numero }}{% endblock %}
+{% block titulo %}Cotizacion {{ cotizacion.numero }}{% endblock %}
 {% block subtitulo %}Emitida el {{ cotizacion.fecha|date:"d M Y" }} · Vigente hasta el {{ vence|date:"d M Y" }}{% endblock %}
 {% block acciones %}
     {% if cotizacion.estado == 'pendiente' %}
@@ -36,14 +36,14 @@
 {% endblock %}
 
 {% block contenido %}
-{% if vencida %}<div class="alerta alerta-aviso">Esta cotización ya superó su fecha de vigencia.</div>{% endif %}
+{% if vencida %}<div class="alerta alerta-aviso">Esta cotizacion ya superó su fecha de vigencia.</div>{% endif %}
 {% if venta %}<div class="alerta alerta-exito">Convertida en la venta <a class="fuerte" href="{% url 'ventas:detalle_venta' venta.id %}">{{ venta.numero }}</a>.</div>{% endif %}
 
 <div class="rejilla rejilla-lateral">
     <div class="rejilla">
         <div class="rejilla rejilla-2">
             <div class="tarjeta">
-                <div class="tarjeta-titulo"><h2>Cliente</h2>{% if cliente %}<a href="{% url 'clientes:detalle_cliente' cliente.id %}">Ver →</a>{% endif %}</div>
+                <div class="tarjeta-titulo"><h2>Cliente</h2><a href="{% url 'clientes:detalle_cliente' cotizacion.cliente.id %}">Ver →</a></div>
                 <div class="tarjeta-cuerpo">
                     <div class="persona">
                         <div class="avatar">{{ cotizacion.cliente.nombre_completo|slice:":1" }}</div>
@@ -56,7 +56,7 @@
                 </div>
             </div>
             <div class="tarjeta">
-                <div class="tarjeta-titulo"><h2>Vehículo</h2>{% if vehiculo %}<a href="{% url 'clientes:detalle_vehiculo' vehiculo.id %}">Ver →</a>{% endif %}</div>
+                <div class="tarjeta-titulo"><h2>Vehiculo</h2><a href="{% url 'clientes:detalle_vehiculo' cotizacion.vehiculo.id %}">Ver →</a></div>
                 <div class="tarjeta-cuerpo">
                     <div class="persona">
                         <div class="indicador-icono tono-rojo">{% include 'parciales/icono.html' with nombre='vehiculo' %}</div>
@@ -75,15 +75,34 @@
                 <div class="chips separado">
                     <span class="chip">Asesor: {{ cotizacion.vendedor.nombre_completo }}</span>
                     <span class="chip">Vigencia: {{ cotizacion.vigencia_dias }} días</span>
+                    {% if cotizacion.promocion %}<span class="chip">Promoción: {{ cotizacion.promocion.nombre }}</span>{% endif %}
                 </div>
             </div>
+        </div>
+        <div class="tarjeta">
+            <div class="tarjeta-titulo"><h2>Seguimientos</h2><a href="{% url 'ventas:crear_seguimiento' %}?cotizacion={{ cotizacion.id }}">+ Registrar</a></div>
+            {% if seguimientos %}
+            <ul class="lista-simple">
+                {% for seguimiento in seguimientos %}
+                <li>
+                    <span>
+                        <span class="fuerte">{{ seguimiento.get_medio_display }} · {{ seguimiento.fecha|date:"d M Y" }}</span><br>
+                        <span class="texto-suave texto-pequeno">{{ seguimiento.comentario }}</span>
+                    </span>
+                    {% include 'parciales/estado.html' with valor=seguimiento.tono texto=seguimiento.get_resultado_display %}
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+                {% include 'parciales/vacio.html' with icono='cotizacion' titulo='Sin seguimientos' mensaje='Registra los contactos que hagas con el cliente sobre esta oferta.' %}
+            {% endif %}
         </div>
     </div>
 
     <div class="tarjeta">
         <div class="tarjeta-titulo"><h2>Resumen</h2>{% include 'parciales/estado.html' with valor=cotizacion.estado texto=cotizacion.get_estado_display %}</div>
         <div class="tarjeta-cuerpo">
-            <div class="resumen-total"><span>Precio del vehículo</span><span class="monto">${{ cotizacion.precio_base|floatformat:0 }}</span></div>
+            <div class="resumen-total"><span>Precio del vehiculo</span><span class="monto">${{ cotizacion.precio_base|floatformat:0 }}</span></div>
             <div class="resumen-total"><span>Descuento ({{ cotizacion.descuento_porcentaje|floatformat }} %)</span><span class="monto">-${{ ahorro|floatformat:0 }}</span></div>
             <div class="resumen-total final"><span>Precio ofertado</span><span>${{ cotizacion.precio_ofertado|floatformat:0 }}</span></div>
         </div>

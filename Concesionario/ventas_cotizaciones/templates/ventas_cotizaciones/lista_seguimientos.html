@@ -1,0 +1,48 @@
+{% extends 'layout.html' %}
+
+{% block titulo_pagina %}Seguimientos{% endblock %}
+{% block miga %}Ventas{% endblock %}
+{% block titulo %}Seguimientos{% endblock %}
+{% block subtitulo %}Contactos con los clientes sobre las cotizaciones enviadas.{% endblock %}
+{% block acciones %}
+    <a class="boton boton-primario" href="{% url 'ventas:crear_seguimiento' %}">
+        {% include 'parciales/icono.html' with nombre='mas' %} Nuevo seguimiento
+    </a>
+{% endblock %}
+
+{% block contenido %}
+<div class="tarjeta">
+    <div class="filtros">
+        <div class="pestanas">
+            <a class="pestana {% if not resultado %}activa{% endif %}" href="{% url 'ventas:lista_seguimientos' %}">Todos</a>
+            {% for valor, nombre in resultados %}
+                <a class="pestana {% if resultado == valor %}activa{% endif %}" href="?resultado={{ valor }}">{{ nombre }}</a>
+            {% endfor %}
+        </div>
+    </div>
+    {% if seguimientos %}
+    <div class="tabla-contenedor">
+        <table>
+            <thead><tr><th>Cotizacion</th><th>Cliente</th><th>Contacto</th><th>Resultado</th><th>Próximo contacto</th><th></th></tr></thead>
+            <tbody>
+            {% for seguimiento in seguimientos %}
+                <tr>
+                    <td><a class="fuerte" href="{% url 'ventas:detalle_cotizacion' seguimiento.cotizacion.id %}">{{ seguimiento.cotizacion.numero }}</a></td>
+                    <td>{{ seguimiento.cotizacion.cliente.nombre_completo }}</td>
+                    <td>{{ seguimiento.get_medio_display }}  <span class="texto-suave">{{ seguimiento.fecha|date:"d M Y" }}</span><br><span class="texto-suave texto-pequeno">{{ seguimiento.comentario }}</span></td>
+                    <td>{% include 'parciales/estado.html' with valor=seguimiento.tono texto=seguimiento.get_resultado_display %}</td>
+                    <td class="texto-suave">{% if seguimiento.proxima_fecha %}{{ seguimiento.proxima_fecha|date:"d M Y" }}{% if seguimiento.proxima_fecha < hoy %} <span class="badge badge-pendiente">Vencido</span>{% endif %}{% else %}{% endif %}</td>
+                    <td class="texto-derecha">
+                        <a class="boton boton-secundario" href="{% url 'ventas:editar_seguimiento' seguimiento.id %}">{% include 'parciales/icono.html' with nombre='editar' %}</a>
+                        <a class="boton boton-suave-peligro" href="{% url 'ventas:eliminar_seguimiento' seguimiento.id %}">{% include 'parciales/icono.html' with nombre='eliminar' %}</a>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+        {% include 'parciales/vacio.html' with icono='cotizacion' titulo='No hay seguimientos' mensaje='Registra el primer contacto con un cliente que recibió una cotización.' %}
+    {% endif %}
+</div>
+{% endblock %}
