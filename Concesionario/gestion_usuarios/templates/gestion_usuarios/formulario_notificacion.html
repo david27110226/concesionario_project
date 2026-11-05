@@ -1,0 +1,15 @@
+{% extends 'layout.html' %}
+
+{% block titulo_pagina %}Enviar notificación{% endblock %}
+{% block miga %}<a href="{% url 'usuarios:notificaciones' %}">Notificaciones</a> / Nueva{% endblock %}
+{% block titulo %}Enviar notificación{% endblock %}
+{% block subtitulo %}El mensaje se guarda dentro del usuario que lo recibe.{% endblock %}
+
+{% block contenido %}
+{% url 'usuarios:notificaciones' as cancelar %}
+<div class="tarjeta formulario-tarjeta">
+    <form method="post" class="tarjeta-cuerpo">
+        {% include 'parciales/formulario.html' with url_cancelar=cancelar texto_boton='Enviar' %}
+    </form>
+</div>
+{% endblock %}

@@ -5,7 +5,7 @@
 {% block encabezado %}{% endblock %}
 
 {% block contenido %}
-{% if id_cancelar %}{% url url_cancelar id_cancelar as volver %}{% else %}{% url url_cancelar as volver %}{% endif %}
+{% if url_volver %}{% firstof url_volver as volver %}{% elif id_cancelar %}{% url url_cancelar id_cancelar as volver %}{% else %}{% url url_cancelar as volver %}{% endif %}
 <div class="tarjeta confirmacion">
     <div class="tarjeta-cuerpo">
         <div class="vacio-icono">{% include 'parciales/icono.html' with nombre='alerta' %}</div>

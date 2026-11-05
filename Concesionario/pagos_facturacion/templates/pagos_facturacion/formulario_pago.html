@@ -1,17 +1,15 @@
 {% extends 'layout.html' %}
 
 {% block titulo_pagina %}{{ titulo }}{% endblock %}
-{% block miga %}<a href="{% url 'pagos:lista_facturas' %}">Facturas</a> / <a href="{% url 'pagos:detalle_factura' factura.id %}">{{ factura.numero_factura }}</a>{% endblock %}
-{% block titulo %}Registrar pago{% endblock %}
-{% block subtitulo %}{{ factura.cliente.nombre_completo }} · Saldo pendiente ${{ factura.saldo|floatformat:0 }}{% endblock %}
+{% block miga %}<a href="{% url 'pagos:lista_facturas' %}">Facturas</a> / <a href="{% url 'pagos:detalle_factura' factura.id %}">{{ factura.numero_factura }}</a> / Pago{% endblock %}
+{% block titulo %}{{ titulo }}{% endblock %}
+{% block subtitulo %}Factura {{ factura.numero_factura }} de {{ factura.nombre_cliente }} · Total ${{ factura.total|floatformat:0 }}. El pago se guarda dentro de la factura.{% endblock %}
 
 {% block contenido %}
 {% url 'pagos:detalle_factura' factura.id as cancelar %}
 <div class="tarjeta formulario-tarjeta">
     <form method="post" class="tarjeta-cuerpo">
-        <div class="progreso"><div style="width: {{ factura.porcentaje_pagado }}%"></div></div>
-        <p class="texto-suave texto-pequeno" style="margin: 8px 0 20px">Pagado ${{ factura.total_pagado|floatformat:0 }} de ${{ factura.total|floatformat:0 }} ({{ factura.porcentaje_pagado }} %)</p>
-        {% include 'parciales/formulario.html' with url_cancelar=cancelar texto_boton='Registrar pago' %}
+        {% include 'parciales/formulario.html' with url_cancelar=cancelar %}
     </form>
 </div>
 {% endblock %}

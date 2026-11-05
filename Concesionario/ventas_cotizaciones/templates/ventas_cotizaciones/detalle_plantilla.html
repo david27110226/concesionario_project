@@ -1,0 +1,95 @@
+{% extends 'layout.html' %}
+
+{% block titulo_pagina %}{{ plantilla.nombre }}{% endblock %}
+{% block miga %}<a href="{% url 'ventas:lista_plantillas' %}">Plantillas</a> / Detalle{% endblock %}
+{% block titulo %}{{ plantilla.nombre }}{% endblock %}
+{% block subtitulo %}Creada por {{ plantilla.creado_por.nombre }} {{ plantilla.creado_por.apellido }} el {{ plantilla.fecha_creacion|date:"d M Y" }}{% endblock %}
+{% block acciones %}
+    <a class="boton boton-secundario" href="{% url 'ventas:editar_plantilla' plantilla.id %}">
+        {% include 'parciales/icono.html' with nombre='editar' %} Editar
+    </a>
+    <a class="boton boton-suave-peligro" href="{% url 'ventas:eliminar_plantilla' plantilla.id %}">
+        {% include 'parciales/icono.html' with nombre='eliminar' %} Eliminar
+    </a>
+{% endblock %}
+
+{% block contenido %}
+<div class="rejilla rejilla-lateral">
+    <div class="rejilla">
+        <div class="tarjeta">
+            <div class="tarjeta-titulo">
+                <h2>Condiciones</h2>
+                <a href="{% url 'ventas:agregar_condicion' plantilla.id %}">+ Agregar</a>
+            </div>
+            {% if condiciones %}
+            <ul class="lista-simple">
+                {% for condicion in condiciones %}
+                <li>
+                    <div>
+                        <span class="fuerte">{{ condicion.orden }}. {{ condicion.titulo }}</span><br>
+                        <span class="texto-suave">{{ condicion.contenido|linebreaksbr }}</span>
+                    </div>
+                    <form method="post" action="{% url 'ventas:eliminar_condicion' plantilla.id condicion.indice %}">
+                        {% csrf_token %}
+                        <button class="boton-icono" type="submit" title="Quitar">{% include 'parciales/icono.html' with nombre='eliminar' %}</button>
+                    </form>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+                {% include 'parciales/vacio.html' with icono='cotizacion' titulo='Sin condiciones' mensaje='Agrega las condiciones comerciales de esta plantilla.' %}
+            {% endif %}
+        </div>
+
+        <div class="tarjeta">
+            <div class="tarjeta-titulo">
+                <h2>Descuentos</h2>
+                <a href="{% url 'ventas:agregar_descuento' plantilla.id %}">+ Agregar</a>
+            </div>
+            {% if descuentos %}
+            <ul class="lista-simple">
+                {% for descuento in descuentos %}
+                <li>
+                    <div>
+                        <span class="fuerte">{{ descuento.nombre }}</span><br>
+                        <span class="texto-suave texto-pequeno">{{ descuento.descripcion|default:"Sin descripción" }}</span>
+                    </div>
+                    <div class="acciones">
+                        <span class="monto">{{ descuento.porcentaje|floatformat:"-1" }} %</span>
+                        <form method="post" action="{% url 'ventas:eliminar_descuento' plantilla.id descuento.indice %}">
+                            {% csrf_token %}
+                            <button class="boton-icono" type="submit" title="Quitar">{% include 'parciales/icono.html' with nombre='eliminar' %}</button>
+                        </form>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+                {% include 'parciales/vacio.html' with icono='dinero' titulo='Sin descuentos' mensaje='Los descuentos de una plantilla activa se ofrecen al cotizar.' %}
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="tarjeta">
+        <div class="tarjeta-cuerpo">
+            <div class="perfil">
+                <div class="avatar avatar-grande">{% include 'parciales/icono.html' with nombre='plantilla' %}</div>
+                <div>
+                    <h2>{{ plantilla.nombre }}</h2>
+                    {% if plantilla.activa %}
+                        {% include 'parciales/estado.html' with valor='activa' texto='Activa' %}
+                    {% else %}
+                        {% include 'parciales/estado.html' with valor='inactivo' texto='Inactiva' %}
+                    {% endif %}
+                </div>
+            </div>
+            <div class="dato separado"><small>Descripción</small><span>{{ plantilla.descripcion|default:"—" }}</span></div>
+            <div class="dato separado"><small>Notas adicionales</small><span>{{ plantilla.notas_adicionales|default:"—"|linebreaksbr }}</span></div>
+            <div class="datos separado">
+                <div class="dato"><small>Creada</small><span>{{ plantilla.fecha_creacion|date:"d M Y" }}</span></div>
+                <div class="dato"><small>Actualizada</small><span>{{ plantilla.fecha_actualizacion|date:"d M Y" }}</span></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

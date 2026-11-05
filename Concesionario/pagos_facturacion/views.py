@@ -1,10 +1,12 @@
 import datetime
 
+from django.db.models import Q
 from django.shortcuts import redirect, render
 
-from ventas_cotizaciones.models import Venta
+from clientes_vehiculos.models import Cliente
+from gestion_usuarios.sesion import registrar_auditoria, requiere_permiso
 from .forms import FormularioEditarFactura, FormularioFactura, FormularioPago
-from .models import ESTADOS_FACTURA, FORMAS_PAGO, TIPOS_PAGO, Factura
+from .models import DetallePago, Factura
 
 
 def buscar_factura(id):
@@ -14,115 +16,139 @@ def buscar_factura(id):
         return None
 
 
-def calcular_valores(total, iva_porcentaje):
-    """El precio de venta ya incluye IVA: se separa el subtotal y el impuesto."""
-    subtotal = round(total / (1 + iva_porcentaje / 100), 2)
-    return subtotal, round(total - subtotal, 2)
+def total_pagado(factura):
+    return sum(p['monto'] for p in factura.pagos)
+
+
+def saldo(factura):
+    return max(factura.total - total_pagado(factura), 0)
 
 
 def actualizar_estado(factura):
     if factura.estado != 'anulada':
-        factura.estado = 'pagada' if factura.saldo() < 1 else 'pendiente'
+        factura.estado = 'pagada' if saldo(factura) < 1 else 'emitida'
+
+
+def siguiente_numero():
+    numeros = [int(f.numero_factura.split('-')[1]) for f in Factura.objects.all()]
+    return f'FAC-{max(numeros, default=0) + 1:05d}'
+
+
+def asignar_numero_a_venta(factura, numero):
+    """Guarda (o borra) el número de factura dentro de la venta embebida del cliente."""
+    cliente = Cliente.objects.filter(cedula=factura.cedula_cliente).first()
+    if cliente is None:
+        return
+    for cotizacion in cliente.cotizaciones:
+        venta = cotizacion['venta']
+        if venta and venta['numero_factura'] == factura.numero_factura:
+            venta['numero_factura'] = numero
+            cliente.save()
+            return
 
 
 # ---------------- Facturas ----------------
 
+@requiere_permiso('pagos')
 def lista_facturas(request):
     facturas = Factura.objects.all().order_by('-id')
+    busqueda = request.GET.get('q', '').strip()
     estado = request.GET.get('estado', '')
+    if busqueda:
+        facturas = facturas.filter(
+            Q(numero_factura__icontains=busqueda) | Q(nombre_cliente__icontains=busqueda) |
+            Q(cedula_cliente__icontains=busqueda) | Q(placa_vehiculo__icontains=busqueda)
+        )
     if estado:
         facturas = facturas.filter(estado=estado)
 
-    vigentes = Factura.objects.exclude(estado='anulada')
+    filas = [{'factura': f, 'pagado': total_pagado(f), 'saldo': saldo(f)} for f in facturas]
     return render(request, 'pagos_facturacion/lista_facturas.html', {
-        'facturas': facturas,
+        'filas': filas,
+        'busqueda': busqueda,
         'estado': estado,
-        'estados': ESTADOS_FACTURA,
-        'total_facturado': sum(f.total for f in vigentes),
-        'total_recaudado': sum(f.total_pagado() for f in vigentes),
-        'por_cobrar': sum(f.saldo() for f in vigentes),
-        'pendientes': Factura.objects.filter(estado='pendiente').count(),
+        'estados': Factura.ESTADOS_FACTURA,
+        'total': Factura.objects.count(),
     })
 
 
+@requiere_permiso('pagos')
 def crear_factura(request):
     if request.method == 'POST':
         formulario = FormularioFactura(request.POST)
         if formulario.is_valid():
             datos = formulario.cleaned_data
-            venta = Venta.objects.filter(numero=datos['venta']).first()
-            if venta is None or venta.facturada:
-                formulario.add_error('venta', 'La venta no existe o ya fue facturada.')
-            else:
-                ultimo = Factura.objects.order_by('-id').first()
-                subtotal, iva = calcular_valores(venta.precio_final, datos['iva_porcentaje'])
-                factura = Factura.objects.create(
-                    numero_factura=f"FAC-{(ultimo.id + 1) if ultimo else 1:04d}",
-                    numero_venta=venta.numero,
-                    fecha_emision=datos['fecha_emision'],
-                    fecha_vencimiento=datos['fecha_vencimiento'],
-                    cliente=venta.cliente,
-                    vehiculo=venta.vehiculo,
-                    subtotal=subtotal,
-                    iva_porcentaje=datos['iva_porcentaje'],
-                    impuesto_iva=iva,
-                    total=venta.precio_final,
-                    pagos=[],
-                )
-                Venta.objects.filter(id=venta.id).update(facturada=True)
-                return redirect('pagos:detalle_factura', id=factura.id)
+            id_cliente, indice = datos['venta'].split('-')
+            cliente = Cliente.objects.get(id=int(id_cliente))
+            cotizacion = cliente.cotizaciones[int(indice)]
+            subtotal = cotizacion['venta']['precio_final'] or 0
+            impuesto = round(subtotal * datos['iva_porcentaje'] / 100)
+
+            factura = Factura.objects.create(
+                numero_factura=siguiente_numero(),
+                cedula_cliente=cliente.cedula,
+                nombre_cliente=f'{cliente.nombre} {cliente.apellido}',
+                placa_vehiculo=cotizacion['vehiculo']['placa'],
+                subtotal=subtotal,
+                impuesto_iva=impuesto,
+                total=subtotal + impuesto,
+                estado='emitida',
+                pagos=[],
+            )
+            cotizacion['venta']['numero_factura'] = factura.numero_factura
+            cliente.save()
+            registrar_auditoria(request, 'crear', 'pagos', f'Generó la factura {factura.numero_factura}')
+            return redirect('pagos:detalle_factura', id=factura.id)
     else:
-        hoy = datetime.date.today()
-        formulario = FormularioFactura(initial={
-            'venta': request.GET.get('venta', ''),
-            'fecha_emision': hoy,
-            'fecha_vencimiento': hoy + datetime.timedelta(days=30),
-        })
+        formulario = FormularioFactura(initial={'venta': request.GET.get('venta', '')})
 
     return render(request, 'pagos_facturacion/formulario_factura.html', {
         'formulario': formulario,
-        'titulo': 'Generar factura',
+        'titulo': 'Nueva factura',
     })
 
 
+@requiere_permiso('pagos')
 def detalle_factura(request, id):
     factura = buscar_factura(id)
     if factura is None:
         return redirect('pagos:lista_facturas')
 
-    tipos, formas = dict(TIPOS_PAGO), dict(FORMAS_PAGO)
-    pagos = [
-        dict(p, indice=i, nombre_tipo=tipos.get(p['tipo_pago']), nombre_forma=formas.get(p['forma_pago']))
-        for i, p in enumerate(factura.pagos)
-    ]
+    pagado = total_pagado(factura)
+    medios = dict(DetallePago.TIPOS_PAGO)
+    pagos = [dict(p, indice=i, medio=medios[p['tipo_pago']]) for i, p in enumerate(factura.pagos)]
     return render(request, 'pagos_facturacion/detalle_factura.html', {
         'factura': factura,
         'pagos': pagos,
-        'venta': Venta.objects.filter(numero=factura.numero_venta).first(),
-        'vencida': factura.estado == 'pendiente' and factura.fecha_vencimiento < datetime.date.today(),
+        'pagado': pagado,
+        'saldo': saldo(factura),
+        'porcentaje': min(round(pagado * 100 / factura.total), 100) if factura.total else 0,
+        'iva_porcentaje': round(factura.impuesto_iva * 100 / factura.subtotal, 2) if factura.subtotal else 0,
     })
 
 
+@requiere_permiso('pagos')
 def editar_factura(request, id):
     factura = buscar_factura(id)
     if factura is None or factura.estado == 'anulada':
         return redirect('pagos:lista_facturas')
 
+    pagado = total_pagado(factura)
     if request.method == 'POST':
-        formulario = FormularioEditarFactura(request.POST)
+        formulario = FormularioEditarFactura(request.POST, pagado=pagado)
         if formulario.is_valid():
             datos = formulario.cleaned_data
-            factura.fecha_emision = datos['fecha_emision']
-            factura.fecha_vencimiento = datos['fecha_vencimiento']
-            factura.iva_porcentaje = datos['iva_porcentaje']
-            factura.subtotal, factura.impuesto_iva = calcular_valores(factura.total, datos['iva_porcentaje'])
+            factura.subtotal = datos['subtotal']
+            factura.impuesto_iva = round(datos['subtotal'] * datos['iva_porcentaje'] / 100)
+            factura.total = factura.subtotal + factura.impuesto_iva
+            actualizar_estado(factura)
             factura.save()
+            registrar_auditoria(request, 'editar', 'pagos', f'Editó la factura {factura.numero_factura}')
             return redirect('pagos:detalle_factura', id=factura.id)
     else:
-        formulario = FormularioEditarFactura(initial={
-            'fecha_emision': factura.fecha_emision,
-            'fecha_vencimiento': factura.fecha_vencimiento,
-            'iva_porcentaje': factura.iva_porcentaje,
+        formulario = FormularioEditarFactura(pagado=pagado, initial={
+            'subtotal': factura.subtotal,
+            'iva_porcentaje': round(factura.impuesto_iva * 100 / factura.subtotal, 2),
         })
 
     return render(request, 'pagos_facturacion/formulario_factura.html', {
@@ -132,108 +158,146 @@ def editar_factura(request, id):
     })
 
 
+@requiere_permiso('pagos')
 def anular_factura(request, id):
     factura = buscar_factura(id)
-    if request.method == 'POST' and factura is not None:
-        Factura.objects.filter(id=id).update(estado='anulada')
+    if factura and request.method == 'POST' and factura.estado != 'anulada':
+        # La venta queda libre para volver a facturarse
+        asignar_numero_a_venta(factura, '')
+        factura.estado = 'anulada'
+        factura.save()
+        registrar_auditoria(request, 'editar', 'pagos', f'Anuló la factura {factura.numero_factura}')
     return redirect('pagos:detalle_factura', id=id)
 
 
+@requiere_permiso('pagos')
 def eliminar_factura(request, id):
     factura = buscar_factura(id)
     if factura is None:
         return redirect('pagos:lista_facturas')
 
-    bloqueado = len(factura.pagos) > 0
-    if request.method == 'POST' and not bloqueado:
-        # La venta vuelve a quedar disponible para facturar
-        Venta.objects.filter(numero=factura.numero_venta).update(facturada=False)
+    con_pagos = bool(factura.pagos)
+    if request.method == 'POST' and not con_pagos:
+        asignar_numero_a_venta(factura, '')
         factura.delete()
+        registrar_auditoria(request, 'eliminar', 'pagos', f'Eliminó la factura {factura.numero_factura}')
         return redirect('pagos:lista_facturas')
 
     return render(request, 'confirmar_eliminar.html', {
         'titulo': 'Eliminar factura',
-        'objeto': f"{factura.numero_factura} · {factura.cliente['nombre_completo']}",
-        'bloqueado': bloqueado,
-        'motivo': 'La factura ya tiene pagos registrados. Puedes anularla en su lugar.',
-        'advertencia': f'La venta {factura.numero_venta} quedará pendiente por facturar.',
+        'objeto': f'la factura {factura.numero_factura} de {factura.nombre_cliente}',
+        'bloqueado': con_pagos,
+        'motivo': 'La factura tiene pagos registrados. Puedes anularla en lugar de eliminarla.',
+        'advertencia': 'La venta quedará sin factura y se podrá volver a facturar.',
         'url_cancelar': 'pagos:detalle_factura',
         'id_cancelar': factura.id,
     })
 
 
-# ---------------- Pagos (embebidos dentro de la factura) ----------------
+# ---------------- Pagos (embebidos en la factura) ----------------
 
+def datos_pago(datos):
+    return {
+        'tipo_pago': datos['tipo_pago'],
+        'forma_pago': datos['forma_pago'],
+        'monto': datos['monto'],
+        'fecha_pago': datos['fecha_pago'],
+        'numero_referencia': datos['numero_referencia'],
+        'observaciones': datos['observaciones'],
+    }
+
+
+def referencia_repetida(factura, referencia, omitir=None):
+    return referencia and any(
+        i != omitir and p['numero_referencia'] == referencia for i, p in enumerate(factura.pagos))
+
+
+@requiere_permiso('pagos')
 def registrar_pago(request, id):
     factura = buscar_factura(id)
-    if factura is None:
-        return redirect('pagos:lista_facturas')
-    if factura.estado != 'pendiente':
+    if factura is None or factura.estado != 'emitida':
         return redirect('pagos:detalle_factura', id=id)
 
     if request.method == 'POST':
-        formulario = FormularioPago(request.POST, saldo=factura.saldo())
+        formulario = FormularioPago(request.POST, maximo=saldo(factura))
         if formulario.is_valid():
             datos = formulario.cleaned_data
-            factura.pagos.append({
-                'tipo_pago': datos['tipo_pago'],
-                'forma_pago': datos['forma_pago'],
-                'monto': datos['monto'],
-                'fecha_pago': datos['fecha_pago'],
-                'numero_referencia': datos['numero_referencia'],
-                'observaciones': datos['observaciones'],
-            })
-            actualizar_estado(factura)
-            factura.save()
-            return redirect('pagos:detalle_factura', id=factura.id)
+            if referencia_repetida(factura, datos['numero_referencia']):
+                formulario.add_error('numero_referencia', 'Ya hay un pago con esa referencia en la factura.')
+            else:
+                factura.pagos.append(datos_pago(datos))
+                actualizar_estado(factura)
+                factura.save()
+                registrar_auditoria(request, 'crear', 'pagos', f'Registró un pago en la factura {factura.numero_factura}')
+                return redirect('pagos:detalle_factura', id=factura.id)
     else:
-        formulario = FormularioPago(saldo=factura.saldo(), initial={
-            'monto': factura.saldo(),
+        formulario = FormularioPago(maximo=saldo(factura), initial={
+            'monto': saldo(factura),
             'fecha_pago': datetime.date.today(),
-            'forma_pago': 'contado' if not factura.pagos else 'cuota',
         })
 
     return render(request, 'pagos_facturacion/formulario_pago.html', {
         'formulario': formulario,
-        'titulo': f'Registrar pago · {factura.numero_factura}',
         'factura': factura,
+        'titulo': 'Registrar pago',
     })
 
 
+@requiere_permiso('pagos')
+def editar_pago(request, id, indice):
+    factura = buscar_factura(id)
+    if factura is None or factura.estado == 'anulada' or indice >= len(factura.pagos):
+        return redirect('pagos:detalle_factura', id=id)
+
+    pago = factura.pagos[indice]
+    maximo = saldo(factura) + pago['monto']
+    if request.method == 'POST':
+        formulario = FormularioPago(request.POST, maximo=maximo)
+        if formulario.is_valid():
+            datos = formulario.cleaned_data
+            if referencia_repetida(factura, datos['numero_referencia'], omitir=indice):
+                formulario.add_error('numero_referencia', 'Ya hay un pago con esa referencia en la factura.')
+            else:
+                factura.pagos[indice] = datos_pago(datos)
+                actualizar_estado(factura)
+                factura.save()
+                registrar_auditoria(request, 'editar', 'pagos', f'Editó un pago de la factura {factura.numero_factura}')
+                return redirect('pagos:detalle_factura', id=factura.id)
+    else:
+        formulario = FormularioPago(maximo=maximo, initial=pago)
+
+    return render(request, 'pagos_facturacion/formulario_pago.html', {
+        'formulario': formulario,
+        'factura': factura,
+        'titulo': 'Editar pago',
+    })
+
+
+@requiere_permiso('pagos')
 def eliminar_pago(request, id, indice):
     factura = buscar_factura(id)
-    if (factura is not None and request.method == 'POST' and factura.estado != 'anulada'
-            and 0 <= indice < len(factura.pagos)):
+    if factura and request.method == 'POST' and factura.estado != 'anulada' and indice < len(factura.pagos):
         factura.pagos.pop(indice)
         actualizar_estado(factura)
         factura.save()
+        registrar_auditoria(request, 'eliminar', 'pagos', f'Eliminó un pago de la factura {factura.numero_factura}')
     return redirect('pagos:detalle_factura', id=id)
 
 
+@requiere_permiso('pagos')
 def lista_pagos(request):
-    tipos = dict(TIPOS_PAGO)
+    medio = request.GET.get('medio', '')
+    medios = dict(DetallePago.TIPOS_PAGO)
     pagos = []
     for factura in Factura.objects.exclude(estado='anulada'):
         for pago in factura.pagos:
-            pagos.append(dict(pago, factura=factura, nombre_tipo=tipos.get(pago['tipo_pago'])))
+            if not medio or pago['tipo_pago'] == medio:
+                pagos.append(dict(pago, factura=factura, medio=medios[pago['tipo_pago']]))
     pagos.sort(key=lambda p: p['fecha_pago'], reverse=True)
-
-    medio = request.GET.get('medio', '')
-    if medio:
-        pagos = [p for p in pagos if p['tipo_pago'] == medio]
-
-    por_medio = []
-    total = sum(p['monto'] for p in pagos)
-    for clave, nombre in TIPOS_PAGO:
-        monto = sum(p['monto'] for p in pagos if p['tipo_pago'] == clave)
-        if monto:
-            por_medio.append({'nombre': nombre, 'monto': monto,
-                              'porcentaje': round(monto * 100 / total) if total else 0})
 
     return render(request, 'pagos_facturacion/lista_pagos.html', {
         'pagos': pagos,
-        'total': total,
-        'por_medio': por_medio,
         'medio': medio,
-        'medios': TIPOS_PAGO,
+        'medios': DetallePago.TIPOS_PAGO,
+        'total': sum(p['monto'] for p in pagos),
     })

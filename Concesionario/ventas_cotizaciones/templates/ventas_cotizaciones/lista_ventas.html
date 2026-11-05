@@ -3,10 +3,10 @@
 {% block titulo_pagina %}Ventas{% endblock %}
 {% block miga %}Ventas{% endblock %}
 {% block titulo %}Ventas{% endblock %}
-{% block subtitulo %}Vehiculos vendidos y su estado de facturacion.{% endblock %}
+{% block subtitulo %}Cada venta se guarda dentro de la cotización aprobada que la originó.{% endblock %}
 {% block acciones %}
-    <a class="boton boton-primario" href="{% url 'ventas:crear_venta' %}">
-        {% include 'parciales/icono.html' with nombre='mas' %} Registrar venta
+    <a class="boton boton-primario" href="{% url 'ventas:lista_cotizaciones' %}?estado=aprobada">
+        {% include 'parciales/icono.html' with nombre='cotizacion' %} Cotizaciones aprobadas
     </a>
 {% endblock %}
 
@@ -14,47 +14,59 @@
 <div class="indicadores">
     <div class="indicador">
         <div class="indicador-icono tono-verde">{% include 'parciales/icono.html' with nombre='dinero' %}</div>
-        <div><small>Total vendido</small><strong>${{ total_vendido|floatformat:0 }}</strong></div>
+        <div><small>Total vendido</small><strong>${{ total|floatformat:0 }}</strong></div>
     </div>
     <div class="indicador">
-        <div class="indicador-icono tono-rojo">{% include 'parciales/icono.html' with nombre='venta' %}</div>
-        <div><small>Ventas activas</small><strong>{{ cantidad_activas }}</strong></div>
+        <div class="indicador-icono tono-azul">{% include 'parciales/icono.html' with nombre='venta' %}</div>
+        <div><small>Ventas</small><strong>{{ ventas|length }}</strong></div>
     </div>
     <div class="indicador">
         <div class="indicador-icono tono-ambar">{% include 'parciales/icono.html' with nombre='factura' %}</div>
-        <div><small>Por facturar</small><strong>{{ por_facturar }}</strong></div>
+        <div><small>Sin factura</small><strong>{{ sin_factura }}</strong></div>
     </div>
 </div>
 
 <div class="tarjeta">
-    <div class="filtros">
-        <div class="pestanas">
-            <a class="pestana {% if not estado %}activa{% endif %}" href="{% url 'ventas:lista_ventas' %}">Todas</a>
-            <a class="pestana {% if estado == 'activa' %}activa{% endif %}" href="?estado=activa">Activas</a>
-            <a class="pestana {% if estado == 'anulada' %}activa{% endif %}" href="?estado=anulada">Anuladas</a>
-        </div>
-    </div>
+    <form class="filtros" method="get">
+        <select name="forma">
+            <option value="">Todas las formas de pago</option>
+            {% for valor, texto in formas_pago %}
+                <option value="{{ valor }}" {% if valor == forma %}selected{% endif %}>{{ texto }}</option>
+            {% endfor %}
+        </select>
+        <button class="boton boton-secundario" type="submit">Filtrar</button>
+        {% if forma %}<a class="boton boton-secundario" href="{% url 'ventas:lista_ventas' %}">Limpiar</a>{% endif %}
+    </form>
+
     {% if ventas %}
     <div class="tabla-contenedor">
         <table>
-            <thead><tr><th>Venta</th><th>Cliente</th><th>Vehiculo</th><th>Pago</th><th>Factura</th><th>Estado</th><th class="texto-derecha">Valor</th></tr></thead>
+            <thead>
+                <tr><th>Fecha</th><th>Cliente</th><th>Vehículo</th><th>Asesor</th><th>Factura</th><th class="texto-derecha">Precio final</th></tr>
+            </thead>
             <tbody>
             {% for venta in ventas %}
-                <tr class="fila-enlace" onclick="window.location='{% url 'ventas:detalle_venta' venta.id %}'">
-                    <td><span class="fuerte">{{ venta.numero }}</span><br><span class="texto-suave texto-pequeno">{{ venta.fecha_venta|date:"d M Y" }}</span></td>
-                    <td>{{ venta.cliente.nombre_completo }}</td>
-                    <td>{{ venta.vehiculo.marca }} {{ venta.vehiculo.modelo }}<br><span class="texto-suave texto-pequeno">{{ venta.vehiculo.placa }}</span></td>
-                    <td>{{ venta.get_forma_pago_display }}</td>
-                    <td>{% if venta.facturada %}<span class="badge badge-info">Facturada</span>{% else %}<span class="badge badge-pendiente">Pendiente</span>{% endif %}</td>
-                    <td>{% include 'parciales/estado.html' with valor=venta.estado texto=venta.get_estado_display %}</td>
-                    <td class="texto-derecha monto">${{ venta.precio_final|floatformat:0 }}</td>
+                <tr class="fila-enlace" onclick="window.location='{% url 'ventas:detalle_cotizacion' venta.cliente.id venta.indice %}'">
+                    <td class="texto-suave">{{ venta.venta.fecha_venta|date:"d M Y" }}</td>
+                    <td><span class="fuerte">{{ venta.cliente.nombre }} {{ venta.cliente.apellido }}</span></td>
+                    <td>{{ venta.vehiculo.marca }} {{ venta.vehiculo.modelo }}<br>
+                        <span class="texto-suave texto-pequeno">{{ venta.vehiculo.placa }} · {{ venta.venta.forma_pago|capfirst }}</span></td>
+                    <td>{{ venta.vendedor.nombre }} {{ venta.vendedor.apellido }}</td>
+                    <td>
+                        {% if venta.venta.numero_factura %}
+                            {% include 'parciales/estado.html' with valor='activa' texto=venta.venta.numero_factura %}
+                        {% else %}
+                            {% include 'parciales/estado.html' with valor='pendiente' texto='Sin facturar' %}
+                        {% endif %}
+                    </td>
+                    <td class="texto-derecha monto">${{ venta.venta.precio_final|floatformat:0 }}</td>
                 </tr>
             {% endfor %}
             </tbody>
         </table>
     </div>
     {% else %}
-        {% include 'parciales/vacio.html' with icono='venta' titulo='No hay ventas' mensaje='Registra una venta o convierte una cotización aprobada.' %}
+        {% include 'parciales/vacio.html' with icono='venta' titulo='No hay ventas' mensaje='Las ventas se registran desde una cotización aprobada.' %}
     {% endif %}
 </div>
 {% endblock %}

@@ -3,40 +3,53 @@
 {% block titulo_pagina %}Cotizaciones{% endblock %}
 {% block miga %}Ventas{% endblock %}
 {% block titulo %}Cotizaciones{% endblock %}
-{% block subtitulo %}Ofertas enviadas a los clientes. Al aprobarse, el vehiculo queda reservado.{% endblock %}
+{% block subtitulo %}Cada cotización se guarda dentro de su cliente. Al aprobarla, el vehículo queda reservado.{% endblock %}
 {% block acciones %}
     <a class="boton boton-primario" href="{% url 'ventas:crear_cotizacion' %}">
-        {% include 'parciales/icono.html' with nombre='mas' %} Nueva cotizacion
+        {% include 'parciales/icono.html' with nombre='mas' %} Nueva cotización
     </a>
 {% endblock %}
 
 {% block contenido %}
 <div class="tarjeta">
-    <div class="filtros">
+    <div class="tarjeta-cuerpo" style="padding-bottom: 0">
         <div class="pestanas">
-            <a class="pestana {% if not estado %}activa{% endif %}" href="{% url 'ventas:lista_cotizaciones' %}">Todas</a>
-            {% for valor, nombre in estados %}
-                <a class="pestana {% if estado == valor %}activa{% endif %}" href="?estado={{ valor }}">{{ nombre }}<span>{% for clave, cantidad in resumen.items %}{% if clave == valor %}{{ cantidad }}{% endif %}{% endfor %}</span></a>
-            {% endfor %}
+            <a class="pestana {% if not estado %}activa{% endif %}" href="?q={{ busqueda }}">Todas<span>{{ conteo.todas }}</span></a>
+            <a class="pestana {% if estado == 'pendiente' %}activa{% endif %}" href="?estado=pendiente&q={{ busqueda }}">Pendientes<span>{{ conteo.pendiente }}</span></a>
+            <a class="pestana {% if estado == 'aprobada' %}activa{% endif %}" href="?estado=aprobada&q={{ busqueda }}">Aprobadas<span>{{ conteo.aprobada }}</span></a>
+            <a class="pestana {% if estado == 'rechazada' %}activa{% endif %}" href="?estado=rechazada&q={{ busqueda }}">Rechazadas<span>{{ conteo.rechazada }}</span></a>
         </div>
     </div>
+    <form class="filtros" method="get">
+        <input type="hidden" name="estado" value="{{ estado }}">
+        <input type="search" name="q" value="{{ busqueda }}" placeholder="Buscar por cliente, cédula, vehículo o placa…">
+        <button class="boton boton-secundario" type="submit">Buscar</button>
+        {% if busqueda %}<a class="boton boton-secundario" href="?estado={{ estado }}">Limpiar</a>{% endif %}
+    </form>
+
     {% if cotizaciones %}
     <div class="tabla-contenedor">
         <table>
-            <thead><tr><th>Número</th><th>Cliente</th><th>Vehículo</th><th>Asesor</th><th>Fecha</th><th>Estado</th><th class="texto-derecha">Oferta</th></tr></thead>
+            <thead>
+                <tr><th>Cliente</th><th>Vehículo</th><th>Asesor</th><th>Fecha</th><th>Estado</th><th class="texto-derecha">Oferta</th></tr>
+            </thead>
             <tbody>
             {% for cotizacion in cotizaciones %}
-                <tr class="fila-enlace" onclick="window.location='{% url 'ventas:detalle_cotizacion' cotizacion.id %}'">
-                    <td class="fuerte">{{ cotizacion.numero }}</td>
-                    <td>{{ cotizacion.cliente.nombre_completo }}<br><span class="texto-suave texto-pequeno">{{ cotizacion.cliente.documento }}</span></td>
-                    <td>{{ cotizacion.vehiculo.marca }} {{ cotizacion.vehiculo.modelo }}<br><span class="texto-suave texto-pequeno">{{ cotizacion.vehiculo.placa }}</span></td>
-                    <td>{{ cotizacion.vendedor.nombre_completo }}</td>
+                <tr class="fila-enlace" onclick="window.location='{% url 'ventas:detalle_cotizacion' cotizacion.cliente.id cotizacion.indice %}'">
+                    <td><span class="fuerte">{{ cotizacion.cliente.nombre }} {{ cotizacion.cliente.apellido }}</span><br>
+                        <span class="texto-suave texto-pequeno">C.C. {{ cotizacion.cliente.cedula }}</span></td>
+                    <td>{{ cotizacion.vehiculo.marca }} {{ cotizacion.vehiculo.modelo }}<br>
+                        <span class="texto-suave texto-pequeno">{{ cotizacion.vehiculo.placa }}</span></td>
+                    <td>{{ cotizacion.vendedor.nombre }} {{ cotizacion.vendedor.apellido }}</td>
                     <td class="texto-suave">{{ cotizacion.fecha|date:"d M Y" }}</td>
-                    <td>{% include 'parciales/estado.html' with valor=cotizacion.estado texto=cotizacion.get_estado_display %}</td>
-                    <td class="texto-derecha">
-                        <span class="monto">${{ cotizacion.precio_ofertado|floatformat:0 }}</span>
-                        {% if cotizacion.descuento_porcentaje %}<br><span class="texto-suave texto-pequeno">-{{ cotizacion.descuento_porcentaje|floatformat }} %</span>{% endif %}
+                    <td>
+                        {% if cotizacion.venta %}
+                            {% include 'parciales/estado.html' with valor='vendida' texto='Vendida' %}
+                        {% else %}
+                            {% include 'parciales/estado.html' with valor=cotizacion.estado texto=cotizacion.estado|capfirst %}
+                        {% endif %}
                     </td>
+                    <td class="texto-derecha monto">${{ cotizacion.precio_ofertado|floatformat:0 }}</td>
                 </tr>
             {% endfor %}
             </tbody>

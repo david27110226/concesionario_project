@@ -3,63 +3,50 @@
 {% block titulo_pagina %}Facturas{% endblock %}
 {% block miga %}Pagos y facturación{% endblock %}
 {% block titulo %}Facturas{% endblock %}
-{% block subtitulo %}Cada factura guarda sus pagos dentro del mismo documento.{% endblock %}
+{% block subtitulo %}{{ total }} factura{{ total|pluralize }}. Cada venta se factura una sola vez y los pagos se guardan dentro de la factura.{% endblock %}
 {% block acciones %}
-    <a class="boton boton-secundario" href="{% url 'pagos:lista_pagos' %}">Ver pagos</a>
     <a class="boton boton-primario" href="{% url 'pagos:crear_factura' %}">
-        {% include 'parciales/icono.html' with nombre='mas' %} Generar factura
+        {% include 'parciales/icono.html' with nombre='mas' %} Nueva factura
     </a>
 {% endblock %}
 
 {% block contenido %}
-<div class="indicadores">
-    <div class="indicador">
-        <div class="indicador-icono tono-azul">{% include 'parciales/icono.html' with nombre='factura' %}</div>
-        <div><small>Total facturado</small><strong>${{ total_facturado|floatformat:0 }}</strong></div>
-    </div>
-    <div class="indicador">
-        <div class="indicador-icono tono-verde">{% include 'parciales/icono.html' with nombre='dinero' %}</div>
-        <div><small>Recaudado</small><strong>${{ total_recaudado|floatformat:0 }}</strong></div>
-    </div>
-    <div class="indicador">
-        <div class="indicador-icono tono-ambar">{% include 'parciales/icono.html' with nombre='pago' %}</div>
-        <div><small>Por cobrar · {{ pendientes }} factura{{ pendientes|pluralize }}</small><strong>${{ por_cobrar|floatformat:0 }}</strong></div>
-    </div>
-</div>
-
 <div class="tarjeta">
-    <div class="filtros">
-        <div class="pestanas">
-            <a class="pestana {% if not estado %}activa{% endif %}" href="{% url 'pagos:lista_facturas' %}">Todas</a>
-            {% for valor, nombre in estados %}
-                <a class="pestana {% if estado == valor %}activa{% endif %}" href="?estado={{ valor }}">{{ nombre }}</a>
+    <form class="filtros" method="get">
+        <input type="search" name="q" value="{{ busqueda }}" placeholder="Buscar por número, cliente, cédula o placa…">
+        <select name="estado">
+            <option value="">Todos los estados</option>
+            {% for valor, texto in estados %}
+                <option value="{{ valor }}" {% if valor == estado %}selected{% endif %}>{{ texto }}</option>
             {% endfor %}
-        </div>
-    </div>
-    {% if facturas %}
+        </select>
+        <button class="boton boton-secundario" type="submit">Filtrar</button>
+        {% if busqueda or estado %}<a class="boton boton-secundario" href="{% url 'pagos:lista_facturas' %}">Limpiar</a>{% endif %}
+    </form>
+
+    {% if filas %}
     <div class="tabla-contenedor">
         <table>
-            <thead><tr><th>Factura</th><th>Cliente</th><th>Vehículo</th><th>Vence</th><th>Pagado</th><th>Estado</th><th class="texto-derecha">Total</th></tr></thead>
+            <thead>
+                <tr><th>Factura</th><th>Cliente</th><th>Vehículo</th><th>Estado</th><th class="texto-derecha">Total</th><th class="texto-derecha">Saldo</th></tr>
+            </thead>
             <tbody>
-            {% for factura in facturas %}
-                <tr class="fila-enlace" onclick="window.location='{% url 'pagos:detalle_factura' factura.id %}'">
-                    <td><span class="fuerte">{{ factura.numero_factura }}</span><br><span class="texto-suave texto-pequeno">{{ factura.numero_venta }} · {{ factura.fecha_emision|date:"d M Y" }}</span></td>
-                    <td>{{ factura.cliente.nombre_completo }}</td>
-                    <td>{{ factura.vehiculo.marca }} {{ factura.vehiculo.modelo }}</td>
-                    <td class="texto-suave">{{ factura.fecha_vencimiento|date:"d M Y" }}</td>
-                    <td style="min-width: 120px">
-                        <div class="progreso"><div style="width: {{ factura.porcentaje_pagado }}%"></div></div>
-                        <span class="texto-suave texto-pequeno">{{ factura.porcentaje_pagado }} %</span>
-                    </td>
-                    <td>{% include 'parciales/estado.html' with valor=factura.estado texto=factura.get_estado_display %}</td>
-                    <td class="texto-derecha monto">${{ factura.total|floatformat:0 }}</td>
+            {% for fila in filas %}
+                <tr class="fila-enlace" onclick="window.location='{% url 'pagos:detalle_factura' fila.factura.id %}'">
+                    <td><span class="fuerte">{{ fila.factura.numero_factura }}</span><br>
+                        <span class="texto-suave texto-pequeno">{{ fila.factura.fecha_emision|date:"d M Y" }}</span></td>
+                    <td>{{ fila.factura.nombre_cliente }}<br><span class="texto-suave texto-pequeno">C.C. {{ fila.factura.cedula_cliente }}</span></td>
+                    <td>{{ fila.factura.placa_vehiculo }}</td>
+                    <td>{% include 'parciales/estado.html' with valor=fila.factura.estado texto=fila.factura.get_estado_display %}</td>
+                    <td class="texto-derecha monto">${{ fila.factura.total|floatformat:0 }}</td>
+                    <td class="texto-derecha">{% if fila.factura.estado == 'anulada' %}—{% else %}${{ fila.saldo|floatformat:0 }}{% endif %}</td>
                 </tr>
             {% endfor %}
             </tbody>
         </table>
     </div>
     {% else %}
-        {% include 'parciales/vacio.html' with icono='factura' titulo='No hay facturas' mensaje='Genera una factura a partir de una venta registrada.' %}
+        {% include 'parciales/vacio.html' with icono='factura' titulo='No hay facturas' mensaje='Las facturas se generan a partir de una venta registrada.' %}
     {% endif %}
 </div>
 {% endblock %}

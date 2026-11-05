@@ -1,0 +1,18 @@
+{% extends 'layout.html' %}
+
+{% block titulo_pagina %}Sin permiso{% endblock %}
+
+{% block encabezado %}{% endblock %}
+
+{% block contenido %}
+<div class="tarjeta confirmacion">
+    <div class="tarjeta-cuerpo">
+        <div class="vacio-icono">{% include 'parciales/icono.html' with nombre='rol' %}</div>
+        <h1>No tienes acceso a este módulo</h1>
+        <p>Tu rol <span class="objeto">{{ request.session.usuario.rol }}</span> no tiene permiso para ver esta sección.</p>
+        <div class="acciones">
+            <a class="boton boton-primario" href="{% url 'inicio' %}">Volver al inicio</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

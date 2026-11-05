@@ -3,7 +3,7 @@
 {% block titulo_pagina %}{{ titulo }}{% endblock %}
 {% block miga %}<a href="{% url 'usuarios:lista_usuarios' %}">Usuarios</a> / Formulario{% endblock %}
 {% block titulo %}{{ titulo }}{% endblock %}
-{% block subtitulo %}Los campos marcados con * son obligatorios.{% endblock %}
+{% block subtitulo %}El rol elegido se guarda dentro del usuario con sus permisos por módulo.{% endblock %}
 
 {% block contenido %}
 {% if usuario %}{% url 'usuarios:detalle_usuario' usuario.id as cancelar %}{% else %}{% url 'usuarios:lista_usuarios' as cancelar %}{% endif %}

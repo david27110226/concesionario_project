@@ -1,0 +1,15 @@
+{% extends 'layout.html' %}
+
+{% block titulo_pagina %}{{ titulo }}{% endblock %}
+{% block miga %}<a href="{% url 'ventas:lista_plantillas' %}">Plantillas</a> / Formulario{% endblock %}
+{% block titulo %}{{ titulo }}{% endblock %}
+{% block subtitulo %}Las condiciones y los descuentos se agregan después, desde el detalle de la plantilla.{% endblock %}
+
+{% block contenido %}
+{% if plantilla %}{% url 'ventas:detalle_plantilla' plantilla.id as cancelar %}{% else %}{% url 'ventas:lista_plantillas' as cancelar %}{% endif %}
+<div class="tarjeta formulario-tarjeta">
+    <form method="post" class="tarjeta-cuerpo">
+        {% include 'parciales/formulario.html' with url_cancelar=cancelar %}
+    </form>
+</div>
+{% endblock %}

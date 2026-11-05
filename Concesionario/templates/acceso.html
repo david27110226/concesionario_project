@@ -1,0 +1,33 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block titulo_pagina %}{% endblock %} · AutoNova</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/estilos.css' %}">
+</head>
+<body>
+<div class="acceso">
+    <section class="acceso-portada">
+        <div class="marca">
+            <span class="marca-logo">{% include 'parciales/icono.html' with nombre='vehiculo' %}</span>
+            <span><strong>AutoNova</strong><small>Concesionario</small></span>
+        </div>
+        <div>
+            <h1>Todo el concesionario en un solo lugar</h1>
+            <p>Clientes, vehículos, cotizaciones, ventas y facturación para tu equipo de trabajo.</p>
+        </div>
+        <small>Cada usuario ve los módulos que su rol le permite.</small>
+    </section>
+
+    <section class="acceso-panel">
+        <div class="acceso-caja{% block clase_caja %}{% endblock %}">
+            {% block contenido %}{% endblock %}
+        </div>
+    </section>
+</div>
+</body>
+</html>

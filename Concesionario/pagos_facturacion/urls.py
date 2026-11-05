@@ -12,6 +12,7 @@ urlpatterns = [
     path('<int:id>/anular/', views.anular_factura, name='anular_factura'),
     path('<int:id>/eliminar/', views.eliminar_factura, name='eliminar_factura'),
     path('<int:id>/pagos/nuevo/', views.registrar_pago, name='registrar_pago'),
+    path('<int:id>/pagos/<int:indice>/editar/', views.editar_pago, name='editar_pago'),
     path('<int:id>/pagos/<int:indice>/eliminar/', views.eliminar_pago, name='eliminar_pago'),
     path('pagos/', views.lista_pagos, name='lista_pagos'),
 ]

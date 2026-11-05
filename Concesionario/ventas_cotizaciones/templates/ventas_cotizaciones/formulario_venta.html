@@ -1,18 +1,15 @@
 {% extends 'layout.html' %}
 
-{% block titulo_pagina %}{{ titulo }}{% endblock %}
-{% block miga %}<a href="{% url 'ventas:lista_ventas' %}">Ventas</a> / Formulario{% endblock %}
-{% block titulo %}{{ titulo }}{% endblock %}
-{% block subtitulo %}Al registrar la venta el vehiculo pasa a estado vendido.{% endblock %}
+{% block titulo_pagina %}Registrar venta{% endblock %}
+{% block miga %}<a href="{% url 'ventas:lista_cotizaciones' %}">Cotizaciones</a> / <a href="{% url 'ventas:detalle_cotizacion' cliente.id indice %}">Detalle</a> / Venta{% endblock %}
+{% block titulo %}Registrar venta{% endblock %}
+{% block subtitulo %}{{ cotizacion.vehiculo.marca }} {{ cotizacion.vehiculo.modelo }} ({{ cotizacion.vehiculo.placa }}) para {{ cliente.nombre }} {{ cliente.apellido }}. Oferta: ${{ cotizacion.precio_ofertado|floatformat:0 }}.{% endblock %}
 
 {% block contenido %}
-{% if venta %}{% url 'ventas:detalle_venta' venta.id as cancelar %}{% elif cotizacion %}{% url 'ventas:detalle_cotizacion' cotizacion.id as cancelar %}{% else %}{% url 'ventas:lista_ventas' as cancelar %}{% endif %}
+{% url 'ventas:detalle_cotizacion' cliente.id indice as cancelar %}
 <div class="tarjeta formulario-tarjeta">
     <form method="post" class="tarjeta-cuerpo">
-        {% if cotizacion %}
-            <div class="alerta alerta-info">Datos tomados de la cotizacion {{ cotizacion.numero }} ({{ cotizacion.cliente.nombre_completo }}).</div>
-        {% endif %}
-        {% include 'parciales/formulario.html' with url_cancelar=cancelar %}
+        {% include 'parciales/formulario.html' with url_cancelar=cancelar texto_boton='Registrar venta' %}
     </form>
 </div>
 {% endblock %}

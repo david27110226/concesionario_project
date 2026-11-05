@@ -3,7 +3,7 @@
 {% block titulo_pagina %}{{ titulo }}{% endblock %}
 {% block miga %}<a href="{% url 'clientes:catalogo_vehiculos' %}">Vehículos</a> / Formulario{% endblock %}
 {% block titulo %}{{ titulo }}{% endblock %}
-{% block subtitulo %}Motor, cilindraje, transmisión, combustible y puertas forman la ficha técnica embebida.{% endblock %}
+{% block subtitulo %}La placa es única: no puede haber dos vehículos con la misma.{% endblock %}
 
 {% block contenido %}
 {% if vehiculo %}{% url 'clientes:detalle_vehiculo' vehiculo.id as cancelar %}{% else %}{% url 'clientes:catalogo_vehiculos' as cancelar %}{% endif %}

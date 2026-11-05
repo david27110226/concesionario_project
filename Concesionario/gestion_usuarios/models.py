@@ -1,96 +1,82 @@
 from djongo import models
 
 
-MODULOS = [
-    ('usuarios', 'Gestión de usuarios'),
-    ('clientes', 'Clientes y vehículos'),
-    ('historial', 'Historial de vehículos'),
-    ('ventas', 'Ventas y cotizaciones'),
-    ('pagos', 'Pagos y facturación'),
-]
-
-NIVELES = [
-    ('lectura', 'Solo lectura'),
-    ('escritura', 'Lectura y escritura'),
-    ('total', 'Control total'),
-]
-
-CARGOS = [
-    ('administrador', 'Administrador'),
-    ('vendedor', 'Asesor de ventas'),
-    ('cajero', 'Cajero'),
-    ('tecnico', 'Técnico'),
-    ('gerente', 'Gerente'),
-]
-
-
-# ---------- Clases embebidas (abstract) ----------
-
-class Permiso(models.Model):
-    modulo = models.CharField(max_length=20, choices=MODULOS)
-    nivel = models.CharField(max_length=20, choices=NIVELES)
-
-    class Meta:
-        abstract = True
-
-
-class RolAsignado(models.Model):
-    nombre = models.CharField(max_length=50)
-    descripcion = models.CharField(max_length=200, blank=True)
-
-    class Meta:
-        abstract = True
-
-
-class UsuarioResumen(models.Model):
-    """Datos mínimos de un usuario que se guardan dentro de cotizaciones,
-    ventas o mantenimientos (no se carga todo el usuario)."""
-    nombre_usuario = models.CharField(max_length=150)
-    nombre_completo = models.CharField(max_length=200)
-
-    class Meta:
-        abstract = True
-
-
-# ---------- Colecciones ----------
-
 class Rol(models.Model):
-    nombre = models.CharField(max_length=50, unique=True)
-    descripcion = models.CharField(max_length=200, blank=True)
-    permisos = models.ArrayField(model_container=Permiso, blank=True)
-    fecha_creacion = models.DateField(auto_now_add=True)
+    nombre = models.CharField(max_length=50)
+    descripcion = models.TextField(blank=True)
+    perm_clientes = models.BooleanField(default=False)
+    perm_ventas = models.BooleanField(default=False)
+    perm_historial = models.BooleanField(default=False)
+    perm_pagos = models.BooleanField(default=False)
+    perm_usuarios = models.BooleanField(default=False)
 
     class Meta:
-        db_table = 'roles'
+        abstract = True
 
-    def __str__(self):
-        return self.nombre
+
+class AuditoriaItem(models.Model):
+    ACCIONES = [
+        ('login', 'Login'),
+        ('logout', 'Logout'),
+        ('crear', 'Crear'),
+        ('editar', 'Editar'),
+        ('eliminar', 'Eliminar'),
+        ('ver', 'Ver'),
+    ]
+    accion = models.CharField(max_length=20, choices=ACCIONES)
+    modulo = models.CharField(max_length=100)
+    descripcion = models.TextField(blank=True)
+    ip = models.CharField(max_length=45, blank=True)
+    fecha = models.DateTimeField()
+    exitoso = models.BooleanField(default=True)
+
+    class Meta:
+        abstract = True
+
+
+class MetaVentas(models.Model):
+    mes = models.IntegerField()
+    anio = models.IntegerField()
+    meta_ventas = models.IntegerField(default=0)
+    ventas_realizadas = models.IntegerField(default=0)
+    fecha_asignacion = models.DateField()
+
+    class Meta:
+        abstract = True
+
+
+class Notificacion(models.Model):
+    remitente = models.CharField(max_length=150)
+    asunto = models.CharField(max_length=200)
+    mensaje = models.TextField()
+    fecha = models.DateTimeField()
+    leida = models.BooleanField(default=False)
+    fecha_lectura = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        abstract = True
 
 
 class Usuario(models.Model):
-    nombre_usuario = models.CharField(max_length=150, unique=True)
+    nombre_usuario = models.CharField(max_length=150)
     contrasena = models.CharField(max_length=255)
     nombre = models.CharField(max_length=100)
     apellido = models.CharField(max_length=100)
     email = models.EmailField()
     telefono = models.CharField(max_length=20, blank=True)
-    cargo = models.CharField(max_length=20, choices=CARGOS, default='vendedor')
+    es_administrador = models.BooleanField(default=False)
+    es_superusuario = models.BooleanField(default=False)
+    esta_activo = models.BooleanField(default=True)
     activo = models.BooleanField(default=True)
-    rol = models.EmbeddedField(model_container=RolAsignado, null=True, blank=True)
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     fecha_actualizacion = models.DateTimeField(auto_now=True)
+    rol = models.EmbeddedField(model_container=Rol, null=True, blank=True)
+    auditoria = models.ArrayField(model_container=AuditoriaItem, blank=True)
+    metas = models.ArrayField(model_container=MetaVentas, blank=True)
+    notificaciones = models.ArrayField(model_container=Notificacion, blank=True)
 
     class Meta:
         db_table = 'usuarios'
 
     def __str__(self):
         return self.nombre_usuario
-
-    def nombre_completo(self):
-        return f"{self.nombre} {self.apellido}"
-
-    def resumen(self):
-        return {
-            'nombre_usuario': self.nombre_usuario,
-            'nombre_completo': self.nombre_completo(),
-        }

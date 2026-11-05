@@ -1,0 +1,15 @@
+{% extends 'acceso.html' %}
+
+{% block titulo_pagina %}Registro{% endblock %}
+{% block clase_caja %} ancha{% endblock %}
+
+{% block contenido %}
+<h2>Crear cuenta</h2>
+<p class="subtitulo">Elige tu rol: Administrador, Gerente, Asesor o Cajero. El rol define los módulos que podrás usar.</p>
+
+<form method="post">
+    {% include 'parciales/formulario.html' with texto_boton='Registrarme' %}
+</form>
+
+<p class="cambiar">¿Ya tienes cuenta? <a href="{% url 'usuarios:login' %}">Inicia sesión</a></p>
+{% endblock %}

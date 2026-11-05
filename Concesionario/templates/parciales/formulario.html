@@ -9,7 +9,7 @@
         </div>
     {% endif %}
 {% endfor %}
-<div class="grid-formulario">
+<div class="grid-formulario {{ clase_grid }}">
     {% for campo in formulario %}
         <div class="campo{% if campo.errors %} con-error{% endif %}">
             <label for="{{ campo.id_for_label }}">
@@ -22,7 +22,7 @@
     {% endfor %}
 </div>
 <div class="formulario-pie">
-    <a class="boton boton-secundario" href="{{ url_cancelar }}">Cancelar</a>
+    {% if url_cancelar %}<a class="boton boton-secundario" href="{{ url_cancelar }}">Cancelar</a>{% endif %}
     <button class="boton boton-primario" type="submit">
         {% include 'parciales/icono.html' with nombre='check' %} {{ texto_boton|default:'Guardar' }}
     </button>

@@ -1,0 +1,16 @@
+{% extends 'acceso.html' %}
+
+{% block titulo_pagina %}Iniciar sesión{% endblock %}
+
+{% block contenido %}
+<h2>Iniciar sesión</h2>
+<p class="subtitulo">Ingresa con tu usuario del concesionario.</p>
+
+{% if error %}<div class="alerta alerta-error">{{ error }}</div>{% endif %}
+
+<form method="post">
+    {% include 'parciales/formulario.html' with clase_grid='una-columna' texto_boton='Entrar' %}
+</form>
+
+<p class="cambiar">¿No tienes cuenta? <a href="{% url 'usuarios:registro' %}">Regístrate</a></p>
+{% endblock %}

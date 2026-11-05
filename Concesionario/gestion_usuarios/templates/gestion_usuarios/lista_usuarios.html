@@ -3,9 +3,8 @@
 {% block titulo_pagina %}Usuarios{% endblock %}
 {% block miga %}Administración{% endblock %}
 {% block titulo %}Usuarios{% endblock %}
-{% block subtitulo %}{{ total }} usuario{{ total|pluralize }} con acceso al sistema.{% endblock %}
+{% block subtitulo %}{{ total }} usuario{{ total|pluralize }} registrado{{ total|pluralize }}. El rol de cada uno se guarda embebido con sus permisos.{% endblock %}
 {% block acciones %}
-    <a class="boton boton-secundario" href="{% url 'usuarios:lista_roles' %}">Gestionar roles</a>
     <a class="boton boton-primario" href="{% url 'usuarios:crear_usuario' %}">
         {% include 'parciales/icono.html' with nombre='mas' %} Nuevo usuario
     </a>
@@ -15,20 +14,21 @@
 <div class="tarjeta">
     <form class="filtros" method="get">
         <input type="search" name="q" value="{{ busqueda }}" placeholder="Buscar por nombre, usuario o correo…">
-        <select name="cargo" onchange="this.form.submit()">
-            <option value="">Todos los cargos</option>
-            {% for valor, nombre in cargos %}
-                <option value="{{ valor }}" {% if valor == cargo %}selected{% endif %}>{{ nombre }}</option>
+        <select name="rol">
+            <option value="">Todos los roles</option>
+            {% for clave, datos in roles.items %}
+                <option value="{{ clave }}" {% if clave == rol %}selected{% endif %}>{{ datos.nombre }}</option>
             {% endfor %}
         </select>
-        <button class="boton boton-secundario" type="submit">Buscar</button>
+        <button class="boton boton-secundario" type="submit">Filtrar</button>
+        {% if busqueda or rol %}<a class="boton boton-secundario" href="{% url 'usuarios:lista_usuarios' %}">Limpiar</a>{% endif %}
     </form>
 
     {% if usuarios %}
     <div class="tabla-contenedor">
         <table>
             <thead>
-                <tr><th>Usuario</th><th>Cargo</th><th>Rol</th><th>Teléfono</th><th>Estado</th></tr>
+                <tr><th>Usuario</th><th>Rol</th><th>Contacto</th><th>Estado</th><th>Creado</th></tr>
             </thead>
             <tbody>
             {% for usuario in usuarios %}
@@ -37,21 +37,21 @@
                         <div class="persona">
                             <div class="avatar avatar-azul">{{ usuario.nombre|slice:":1" }}{{ usuario.apellido|slice:":1" }}</div>
                             <div>
-                                <div class="fuerte">{{ usuario.nombre }} {{ usuario.apellido }}</div>
-                                <div class="texto-suave texto-pequeno">@{{ usuario.nombre_usuario }} · {{ usuario.email }}</div>
+                                <span class="fuerte">{{ usuario.nombre }} {{ usuario.apellido }}</span><br>
+                                <span class="texto-suave texto-pequeno">@{{ usuario.nombre_usuario }}</span>
                             </div>
                         </div>
                     </td>
-                    <td>{{ usuario.get_cargo_display }}</td>
-                    <td>{% if usuario.rol %}<span class="chip">{{ usuario.rol.nombre }}</span>{% else %}<span class="texto-suave">Sin rol</span>{% endif %}</td>
-                    <td>{{ usuario.telefono|default:"—" }}</td>
+                    <td>{{ usuario.rol.nombre|default:"Sin rol" }}</td>
+                    <td>{{ usuario.email }}<br><span class="texto-suave texto-pequeno">{{ usuario.telefono|default:"Sin teléfono" }}</span></td>
                     <td>
-                        {% if usuario.activo %}
-                            {% include 'parciales/estado.html' with valor='activo' texto='Activo' %}
+                        {% if usuario.esta_activo %}
+                            {% include 'parciales/estado.html' with valor='activo' texto='Habilitado' %}
                         {% else %}
-                            {% include 'parciales/estado.html' with valor='inactivo' texto='Inactivo' %}
+                            {% include 'parciales/estado.html' with valor='inactivo' texto='Deshabilitado' %}
                         {% endif %}
                     </td>
+                    <td class="texto-suave">{{ usuario.fecha_creacion|date:"d M Y" }}</td>
                 </tr>
             {% endfor %}
             </tbody>

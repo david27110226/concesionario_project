@@ -1,18 +1,15 @@
 {% extends 'layout.html' %}
 
-{% block titulo_pagina %}Historial {{ historial.vehiculo.placa }}{% endblock %}
+{% block titulo_pagina %}Historial {{ vehiculo.placa }}{% endblock %}
 {% block miga %}<a href="{% url 'historial:lista_historiales' %}">Historial</a> / Detalle{% endblock %}
-{% block titulo %}{{ historial.vehiculo.marca }} {{ historial.vehiculo.modelo }} {{ historial.vehiculo.anio|stringformat:"d" }}{% endblock %}
-{% block subtitulo %}Placa {{ historial.vehiculo.placa }} · Historial abierto el {{ historial.fecha_creacion|date:"d M Y" }}{% endblock %}
+{% block titulo %}{{ vehiculo.marca }} {{ vehiculo.modelo }} {{ vehiculo.anio|stringformat:"d" }}{% endblock %}
+{% block subtitulo %}Placa {{ vehiculo.placa }} · {{ vehiculo.kilometraje|floatformat:0 }} km{% endblock %}
 {% block acciones %}
-    <a class="boton boton-primario" href="{% url 'historial:agregar_mantenimiento' historial.id %}">
+    <a class="boton boton-primario" href="{% url 'historial:agregar_mantenimiento' vehiculo.id %}">
         {% include 'parciales/icono.html' with nombre='mas' %} Mantenimiento
     </a>
-    <a class="boton boton-secundario" href="{% url 'historial:editar_historial' historial.id %}">
-        {% include 'parciales/icono.html' with nombre='editar' %} Editar
-    </a>
-    <a class="boton boton-suave-peligro" href="{% url 'historial:eliminar_historial' historial.id %}">
-        {% include 'parciales/icono.html' with nombre='eliminar' %} Eliminar
+    <a class="boton boton-secundario" href="{% url 'historial:agregar_propietario' vehiculo.id %}">
+        {% include 'parciales/icono.html' with nombre='mas' %} Propietario anterior
     </a>
 {% endblock %}
 
@@ -33,16 +30,12 @@
                         <p>{{ mantenimiento.descripcion|default:"Sin descripción" }}</p>
                         <div class="chips">
                             <span class="chip">{{ mantenimiento.fecha|date:"d M Y" }}</span>
-                            <span class="chip">{{ mantenimiento.kilometraje|floatformat:0 }} km</span>
-                            <span class="chip">{{ mantenimiento.taller }}</span>
                         </div>
                     </div>
                     <div class="acciones">
-                        <span class="monto">${{ mantenimiento.costo|floatformat:0 }}</span>
-                        <form method="post" action="{% url 'historial:eliminar_mantenimiento' historial.id mantenimiento.indice %}" onsubmit="return confirm('¿Eliminar este mantenimiento?')">
-                            {% csrf_token %}
-                            <button class="boton-icono" type="submit" title="Eliminar">{% include 'parciales/icono.html' with nombre='eliminar' %}</button>
-                        </form>
+                        <span class="monto">{% if mantenimiento.costo is not None %}${{ mantenimiento.costo|floatformat:0 }}{% else %}Sin costo{% endif %}</span>
+                        <a class="boton-icono" href="{% url 'historial:editar_mantenimiento' vehiculo.id mantenimiento.indice %}" title="Modificar">{% include 'parciales/icono.html' with nombre='editar' %}</a>
+                        <a class="boton-icono" href="{% url 'historial:eliminar_mantenimiento' vehiculo.id mantenimiento.indice %}" title="Borrar">{% include 'parciales/icono.html' with nombre='eliminar' %}</a>
                     </div>
                 </div>
             </li>
@@ -55,44 +48,42 @@
 
     <div class="rejilla">
         <div class="tarjeta">
-            <div class="tarjeta-titulo"><h2>Vehículo</h2>{% if vehiculo %}<a href="{% url 'clientes:detalle_vehiculo' vehiculo.id %}">Ver ficha →</a>{% endif %}</div>
+            <div class="tarjeta-titulo">
+                <h2>Vehículo</h2>
+                {% if request.session.usuario.permisos.clientes %}<a href="{% url 'clientes:detalle_vehiculo' vehiculo.id %}">Ver ficha →</a>{% endif %}
+            </div>
             <div class="tarjeta-cuerpo">
                 <div class="datos">
-                    <div class="dato"><small>Placa</small><span>{{ historial.vehiculo.placa }}</span></div>
-                    <div class="dato"><small>Modelo</small><span>{{ historial.vehiculo.anio|stringformat:"d" }}</span></div>
-                    {% if vehiculo %}
+                    <div class="dato"><small>Placa</small><span>{{ vehiculo.placa }}</span></div>
+                    <div class="dato"><small>Color</small><span>{{ vehiculo.color|default:"—" }}</span></div>
                     <div class="dato"><small>Kilometraje</small><span>{{ vehiculo.kilometraje|floatformat:0 }} km</span></div>
                     <div class="dato"><small>Estado</small>{% include 'parciales/estado.html' with valor=vehiculo.estado texto=vehiculo.get_estado_display %}</div>
-                    {% endif %}
                 </div>
-                {% if historial.observaciones %}
-                    <div class="alerta alerta-info separado">{{ historial.observaciones|linebreaksbr }}</div>
-                {% endif %}
             </div>
         </div>
 
         <div class="tarjeta">
             <div class="tarjeta-titulo">
                 <h2>Propietarios anteriores</h2>
-                <a href="{% url 'historial:agregar_propietario' historial.id %}">+ Agregar</a>
+                <a href="{% url 'historial:agregar_propietario' vehiculo.id %}">+ Agregar</a>
             </div>
             {% if propietarios %}
             <ul class="lista-simple">
-                {% for propietario in propietarios %}
+                {% for dueno in propietarios %}
                 <li>
                     <div>
-                        <span class="fuerte">{{ propietario.nombre }}</span><br>
-                        <span class="texto-suave texto-pequeno">{{ propietario.fecha_inicio|date:"M Y" }} – {{ propietario.fecha_fin|date:"M Y" }}{% if propietario.documento %} · {{ propietario.documento }}{% endif %}</span>
+                        <span class="fuerte">{{ dueno.nombre }}</span><br>
+                        <span class="texto-suave texto-pequeno">{{ dueno.fecha_inicio|date:"d M Y" }} – {{ dueno.fecha_fin|date:"d M Y" }}</span>
                     </div>
-                    <form method="post" action="{% url 'historial:eliminar_propietario' historial.id propietario.indice %}" onsubmit="return confirm('¿Eliminar este propietario?')">
-                        {% csrf_token %}
-                        <button class="boton-icono" type="submit" title="Eliminar">{% include 'parciales/icono.html' with nombre='eliminar' %}</button>
-                    </form>
+                    <div class="acciones">
+                        <a class="boton-icono" href="{% url 'historial:editar_propietario' vehiculo.id dueno.indice %}" title="Modificar">{% include 'parciales/icono.html' with nombre='editar' %}</a>
+                        <a class="boton-icono" href="{% url 'historial:eliminar_propietario' vehiculo.id dueno.indice %}" title="Borrar">{% include 'parciales/icono.html' with nombre='eliminar' %}</a>
+                    </div>
                 </li>
                 {% endfor %}
             </ul>
             {% else %}
-                {% include 'parciales/vacio.html' with icono='clientes' titulo='Primer propietario' mensaje='No se registran dueños anteriores.' %}
+                {% include 'parciales/vacio.html' with icono='clientes' titulo='Sin dueños anteriores' mensaje='Si el vehículo es usado, registra aquí a sus dueños.' %}
             {% endif %}
         </div>
     </div>

@@ -3,7 +3,7 @@
 {% block titulo_pagina %}Vehículos{% endblock %}
 {% block miga %}Clientes y vehículos{% endblock %}
 {% block titulo %}Catálogo de vehículos{% endblock %}
-{% block subtitulo %}{{ disponibles }} disponible{{ disponibles|pluralize }} de {{ total }} en inventario.{% endblock %}
+{% block subtitulo %}{{ total }} vehículo{{ total|pluralize }} en inventario. Cada placa es única.{% endblock %}
 {% block acciones %}
     <a class="boton boton-primario" href="{% url 'clientes:crear_vehiculo' %}">
         {% include 'parciales/icono.html' with nombre='mas' %} Nuevo vehículo
@@ -12,21 +12,16 @@
 
 {% block contenido %}
 <div class="tarjeta" style="margin-bottom: 20px">
-    <form class="filtros" method="get" style="border-bottom: none">
+    <form class="filtros" method="get">
         <input type="search" name="q" value="{{ busqueda }}" placeholder="Buscar por marca, modelo o placa…">
-        <select name="tipo" onchange="this.form.submit()">
-            <option value="">Todos los tipos</option>
-            {% for valor, nombre in tipos %}
-                <option value="{{ valor }}" {% if valor == tipo %}selected{% endif %}>{{ nombre }}</option>
-            {% endfor %}
-        </select>
-        <select name="estado" onchange="this.form.submit()">
+        <select name="estado">
             <option value="">Todos los estados</option>
-            {% for valor, nombre in estados %}
-                <option value="{{ valor }}" {% if valor == estado %}selected{% endif %}>{{ nombre }}</option>
+            {% for valor, texto in estados %}
+                <option value="{{ valor }}" {% if valor == estado %}selected{% endif %}>{{ texto }}</option>
             {% endfor %}
         </select>
         <button class="boton boton-secundario" type="submit">Filtrar</button>
+        {% if busqueda or estado %}<a class="boton boton-secundario" href="{% url 'clientes:catalogo_vehiculos' %}">Limpiar</a>{% endif %}
     </form>
 </div>
 
@@ -38,7 +33,7 @@
 </div>
 {% else %}
 <div class="tarjeta">
-    {% include 'parciales/vacio.html' with icono='vehiculo' titulo='No hay vehículos' mensaje='Ajusta los filtros o agrega un vehículo al inventario.' %}
+    {% include 'parciales/vacio.html' with icono='vehiculo' titulo='No se encontraron vehículos' mensaje='Agrega un vehículo al inventario para empezar.' %}
 </div>
 {% endif %}
 {% endblock %}

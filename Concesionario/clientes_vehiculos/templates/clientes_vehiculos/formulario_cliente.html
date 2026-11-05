@@ -3,7 +3,7 @@
 {% block titulo_pagina %}{{ titulo }}{% endblock %}
 {% block miga %}<a href="{% url 'clientes:lista_clientes' %}">Clientes</a> / Formulario{% endblock %}
 {% block titulo %}{{ titulo }}{% endblock %}
-{% block subtitulo %}La dirección se guarda como un objeto dentro del cliente.{% endblock %}
+{% block subtitulo %}La cédula identifica al cliente y no se puede repetir.{% endblock %}
 
 {% block contenido %}
 {% if cliente %}{% url 'clientes:detalle_cliente' cliente.id as cancelar %}{% else %}{% url 'clientes:lista_clientes' as cancelar %}{% endif %}

@@ -1,110 +1,127 @@
 {% extends 'layout.html' %}
 
-{% block titulo_pagina %}{{ cotizacion.numero }}{% endblock %}
+{% block titulo_pagina %}Cotización{% endblock %}
 {% block miga %}<a href="{% url 'ventas:lista_cotizaciones' %}">Cotizaciones</a> / Detalle{% endblock %}
-{% block titulo %}Cotizacion {{ cotizacion.numero }}{% endblock %}
-{% block subtitulo %}Emitida el {{ cotizacion.fecha|date:"d M Y" }} · Vigente hasta el {{ vence|date:"d M Y" }}{% endblock %}
+{% block titulo %}{{ cotizacion.vehiculo.marca }} {{ cotizacion.vehiculo.modelo }} para {{ cliente.nombre }} {{ cliente.apellido }}{% endblock %}
+{% block subtitulo %}Cotizada el {{ cotizacion.fecha|date:"d M Y" }} por {{ cotizacion.vendedor.nombre }} {{ cotizacion.vendedor.apellido }}{% endblock %}
 {% block acciones %}
-    {% if cotizacion.estado == 'pendiente' %}
-        <form method="post" action="{% url 'ventas:cambiar_estado_cotizacion' cotizacion.id 'aprobada' %}">
+    {% if not cotizacion.venta %}
+        {% if cotizacion.estado == 'pendiente' %}
+        <form method="post" action="{% url 'ventas:cambiar_estado_cotizacion' cliente.id indice 'aprobada' %}">
             {% csrf_token %}
             <button class="boton boton-exito" type="submit">{% include 'parciales/icono.html' with nombre='check' %} Aprobar</button>
         </form>
-        <form method="post" action="{% url 'ventas:cambiar_estado_cotizacion' cotizacion.id 'rechazada' %}">
+        <form method="post" action="{% url 'ventas:cambiar_estado_cotizacion' cliente.id indice 'rechazada' %}">
             {% csrf_token %}
             <button class="boton boton-secundario" type="submit">{% include 'parciales/icono.html' with nombre='x' %} Rechazar</button>
         </form>
-    {% elif cotizacion.estado == 'rechazada' %}
-        <form method="post" action="{% url 'ventas:cambiar_estado_cotizacion' cotizacion.id 'pendiente' %}">
-            {% csrf_token %}
-            <button class="boton boton-secundario" type="submit">Reabrir</button>
-        </form>
+        {% elif cotizacion.estado == 'aprobada' %}
+        <a class="boton boton-primario" href="{% url 'ventas:registrar_venta' cliente.id indice %}">
+            {% include 'parciales/icono.html' with nombre='venta' %} Registrar venta
+        </a>
+        {% endif %}
     {% endif %}
-    {% if cotizacion.estado == 'aprobada' or cotizacion.estado == 'pendiente' %}
-        <a class="boton boton-primario" href="{% url 'ventas:vender_cotizacion' cotizacion.id %}">
-            {% include 'parciales/icono.html' with nombre='venta' %} Convertir en venta
-        </a>
-    {% endif %}
-    {% if cotizacion.estado != 'vendida' %}
-        <a class="boton boton-secundario" href="{% url 'ventas:editar_cotizacion' cotizacion.id %}">
-            {% include 'parciales/icono.html' with nombre='editar' %} Editar
-        </a>
-        <a class="boton boton-suave-peligro" href="{% url 'ventas:eliminar_cotizacion' cotizacion.id %}">
-            {% include 'parciales/icono.html' with nombre='eliminar' %}
-        </a>
+    <a class="boton boton-secundario" href="{% url 'ventas:editar_cotizacion' cliente.id indice %}">
+        {% include 'parciales/icono.html' with nombre='editar' %} Editar
+    </a>
+    {% if not cotizacion.venta %}
+    <a class="boton boton-suave-peligro" href="{% url 'ventas:eliminar_cotizacion' cliente.id indice %}">
+        {% include 'parciales/icono.html' with nombre='eliminar' %} Eliminar
+    </a>
     {% endif %}
 {% endblock %}
 
 {% block contenido %}
-{% if vencida %}<div class="alerta alerta-aviso">Esta cotizacion ya superó su fecha de vigencia.</div>{% endif %}
-{% if venta %}<div class="alerta alerta-exito">Convertida en la venta <a class="fuerte" href="{% url 'ventas:detalle_venta' venta.id %}">{{ venta.numero }}</a>.</div>{% endif %}
-
 <div class="rejilla rejilla-lateral">
     <div class="rejilla">
-        <div class="rejilla rejilla-2">
-            <div class="tarjeta">
-                <div class="tarjeta-titulo"><h2>Cliente</h2><a href="{% url 'clientes:detalle_cliente' cotizacion.cliente.id %}">Ver →</a></div>
-                <div class="tarjeta-cuerpo">
-                    <div class="persona">
-                        <div class="avatar">{{ cotizacion.cliente.nombre_completo|slice:":1" }}</div>
-                        <div>
-                            <div class="fuerte">{{ cotizacion.cliente.nombre_completo }}</div>
-                            <div class="texto-suave texto-pequeno">{{ cotizacion.cliente.documento }} · {{ cotizacion.cliente.telefono }}</div>
-                            <div class="texto-suave texto-pequeno">{{ cotizacion.cliente.email }}</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="tarjeta">
-                <div class="tarjeta-titulo"><h2>Vehiculo</h2><a href="{% url 'clientes:detalle_vehiculo' cotizacion.vehiculo.id %}">Ver →</a></div>
-                <div class="tarjeta-cuerpo">
-                    <div class="persona">
-                        <div class="indicador-icono tono-rojo">{% include 'parciales/icono.html' with nombre='vehiculo' %}</div>
-                        <div>
-                            <div class="fuerte">{{ cotizacion.vehiculo.marca }} {{ cotizacion.vehiculo.modelo }} {{ cotizacion.vehiculo.anio|stringformat:"d" }}</div>
-                            <div class="texto-suave texto-pequeno">Placa {{ cotizacion.vehiculo.placa }}</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
         <div class="tarjeta">
-            <div class="tarjeta-titulo"><h2>Notas</h2></div>
+            <div class="tarjeta-titulo">
+                <h2>Oferta</h2>
+                {% if cotizacion.venta %}
+                    {% include 'parciales/estado.html' with valor='vendida' texto='Vendida' %}
+                {% else %}
+                    {% include 'parciales/estado.html' with valor=cotizacion.estado texto=cotizacion.estado|capfirst %}
+                {% endif %}
+            </div>
             <div class="tarjeta-cuerpo">
-                <p class="{% if not cotizacion.notas %}texto-suave{% endif %}">{{ cotizacion.notas|default:"Sin notas adicionales."|linebreaksbr }}</p>
-                <div class="chips separado">
-                    <span class="chip">Asesor: {{ cotizacion.vendedor.nombre_completo }}</span>
-                    <span class="chip">Vigencia: {{ cotizacion.vigencia_dias }} días</span>
-                    {% if cotizacion.promocion %}<span class="chip">Promoción: {{ cotizacion.promocion.nombre }}</span>{% endif %}
-                </div>
+                <div class="resumen-total"><span>Precio de lista</span><span>${{ cotizacion.vehiculo.precio|floatformat:0 }}</span></div>
+                <div class="resumen-total"><span>Descuento</span><span>− ${{ ahorro|floatformat:0 }}</span></div>
+                <div class="resumen-total final"><span>Precio ofertado</span><span>${{ cotizacion.precio_ofertado|floatformat:0 }}</span></div>
+                {% if cotizacion.notas %}<div class="alerta alerta-info separado">{{ cotizacion.notas|linebreaksbr }}</div>{% endif %}
             </div>
         </div>
+
         <div class="tarjeta">
-            <div class="tarjeta-titulo"><h2>Seguimientos</h2><a href="{% url 'ventas:crear_seguimiento' %}?cotizacion={{ cotizacion.id }}">+ Registrar</a></div>
-            {% if seguimientos %}
-            <ul class="lista-simple">
-                {% for seguimiento in seguimientos %}
-                <li>
-                    <span>
-                        <span class="fuerte">{{ seguimiento.get_medio_display }} · {{ seguimiento.fecha|date:"d M Y" }}</span><br>
-                        <span class="texto-suave texto-pequeno">{{ seguimiento.comentario }}</span>
-                    </span>
-                    {% include 'parciales/estado.html' with valor=seguimiento.tono texto=seguimiento.get_resultado_display %}
-                </li>
-                {% endfor %}
-            </ul>
+            <div class="tarjeta-titulo">
+                <h2>Venta</h2>
+                {% if cotizacion.venta and not cotizacion.venta.numero_factura %}
+                    <a href="{% url 'ventas:eliminar_venta' cliente.id indice %}">Eliminar venta</a>
+                {% endif %}
+            </div>
+            {% if cotizacion.venta %}
+            <div class="tarjeta-cuerpo">
+                <div class="datos">
+                    <div class="dato"><small>Fecha de venta</small><span>{{ cotizacion.venta.fecha_venta|date:"d M Y" }}</span></div>
+                    <div class="dato"><small>Forma de pago</small><span>{{ cotizacion.venta.forma_pago|capfirst }}</span></div>
+                    <div class="dato"><small>Precio final</small><span class="monto">${{ cotizacion.venta.precio_final|floatformat:0 }}</span></div>
+                    <div class="dato"><small>Factura</small>
+                        {% if factura %}
+                            {% if request.session.usuario.permisos.pagos %}<a class="fuerte" href="{% url 'pagos:detalle_factura' factura.id %}">{{ factura.numero_factura }} →</a>{% else %}<span>{{ factura.numero_factura }}</span>{% endif %}
+                        {% else %}
+                            <span class="texto-suave">Sin facturar</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% if not factura and request.session.usuario.permisos.pagos %}
+                <div class="acciones separado">
+                    <a class="boton boton-primario boton-pequeno" href="{% url 'pagos:crear_factura' %}?venta={{ cliente.id }}-{{ indice }}">
+                        {% include 'parciales/icono.html' with nombre='factura' %} Generar factura
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+            {% elif cotizacion.estado == 'aprobada' %}
+                {% include 'parciales/vacio.html' with icono='venta' titulo='Lista para vender' mensaje='La cotización está aprobada. Registra la venta cuando el cliente confirme.' %}
             {% else %}
-                {% include 'parciales/vacio.html' with icono='cotizacion' titulo='Sin seguimientos' mensaje='Registra los contactos que hagas con el cliente sobre esta oferta.' %}
+                {% include 'parciales/vacio.html' with icono='venta' titulo='Sin venta' mensaje='Primero aprueba la cotización para poder registrar la venta.' %}
             {% endif %}
         </div>
     </div>
 
-    <div class="tarjeta">
-        <div class="tarjeta-titulo"><h2>Resumen</h2>{% include 'parciales/estado.html' with valor=cotizacion.estado texto=cotizacion.get_estado_display %}</div>
-        <div class="tarjeta-cuerpo">
-            <div class="resumen-total"><span>Precio del vehiculo</span><span class="monto">${{ cotizacion.precio_base|floatformat:0 }}</span></div>
-            <div class="resumen-total"><span>Descuento ({{ cotizacion.descuento_porcentaje|floatformat }} %)</span><span class="monto">-${{ ahorro|floatformat:0 }}</span></div>
-            <div class="resumen-total final"><span>Precio ofertado</span><span>${{ cotizacion.precio_ofertado|floatformat:0 }}</span></div>
+    <div class="rejilla">
+        <div class="tarjeta">
+            <div class="tarjeta-titulo">
+                <h2>Cliente</h2>
+                {% if request.session.usuario.permisos.clientes %}<a href="{% url 'clientes:detalle_cliente' cliente.id %}">Ver →</a>{% endif %}
+            </div>
+            <div class="tarjeta-cuerpo">
+                <div class="persona">
+                    <div class="avatar">{{ cliente.nombre|slice:":1" }}{{ cliente.apellido|slice:":1" }}</div>
+                    <div><span class="fuerte">{{ cliente.nombre }} {{ cliente.apellido }}</span><br>
+                        <span class="texto-suave texto-pequeno">C.C. {{ cliente.cedula }} · {{ cliente.telefono }}</span></div>
+                </div>
+            </div>
+        </div>
+        <div class="tarjeta">
+            <div class="tarjeta-titulo"><h2>Vehículo</h2></div>
+            <div class="tarjeta-cuerpo">
+                <div class="datos">
+                    <div class="dato"><small>Marca</small><span>{{ cotizacion.vehiculo.marca }}</span></div>
+                    <div class="dato"><small>Modelo</small><span>{{ cotizacion.vehiculo.modelo }}</span></div>
+                    <div class="dato"><small>Año</small><span>{{ cotizacion.vehiculo.anio|stringformat:"d" }}</span></div>
+                    <div class="dato"><small>Placa</small><span>{{ cotizacion.vehiculo.placa }}</span></div>
+                </div>
+            </div>
+        </div>
+        <div class="tarjeta">
+            <div class="tarjeta-titulo"><h2>Asesor</h2></div>
+            <div class="tarjeta-cuerpo">
+                <div class="persona">
+                    <div class="avatar avatar-azul">{{ cotizacion.vendedor.nombre|slice:":1" }}{{ cotizacion.vendedor.apellido|slice:":1" }}</div>
+                    <div><span class="fuerte">{{ cotizacion.vendedor.nombre }} {{ cotizacion.vendedor.apellido }}</span><br>
+                        <span class="texto-suave texto-pequeno">@{{ cotizacion.vendedor.nombre_usuario }}</span></div>
+                </div>
+            </div>
         </div>
     </div>
 </div>

@@ -1,0 +1,44 @@
+{% extends 'layout.html' %}
+
+{% block titulo_pagina %}Notificaciones{% endblock %}
+{% block miga %}Mi cuenta{% endblock %}
+{% block titulo %}Notificaciones{% endblock %}
+{% block subtitulo %}{% if no_leidas %}Tienes {{ no_leidas }} sin leer.{% else %}Estás al día.{% endif %}{% endblock %}
+{% block acciones %}
+    <a class="boton boton-primario" href="{% url 'usuarios:enviar_notificacion' %}">
+        {% include 'parciales/icono.html' with nombre='mas' %} Enviar notificación
+    </a>
+{% endblock %}
+
+{% block contenido %}
+<div class="tarjeta">
+    {% if notificaciones %}
+    <ul class="lista-simple">
+        {% for notificacion in notificaciones %}
+        <li>
+            <div>
+                <span class="fuerte">{{ notificacion.asunto }}</span>
+                {% if not notificacion.leida %}{% include 'parciales/estado.html' with valor='pendiente' texto='Nueva' %}{% endif %}<br>
+                <span>{{ notificacion.mensaje|linebreaksbr }}</span><br>
+                <span class="texto-suave texto-pequeno">De @{{ notificacion.remitente }} · {{ notificacion.fecha|date:"d M Y H:i" }}{% if notificacion.leida %} · Leída el {{ notificacion.fecha_lectura|date:"d M Y H:i" }}{% endif %}</span>
+            </div>
+            <div class="acciones">
+                {% if not notificacion.leida %}
+                <form method="post" action="{% url 'usuarios:leer_notificacion' notificacion.indice %}">
+                    {% csrf_token %}
+                    <button class="boton boton-secundario boton-pequeno" type="submit">{% include 'parciales/icono.html' with nombre='check' %} Marcar leída</button>
+                </form>
+                {% endif %}
+                <form method="post" action="{% url 'usuarios:eliminar_notificacion' notificacion.indice %}">
+                    {% csrf_token %}
+                    <button class="boton-icono" type="submit" title="Eliminar">{% include 'parciales/icono.html' with nombre='eliminar' %}</button>
+                </form>
+            </div>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+        {% include 'parciales/vacio.html' with icono='campana' titulo='No tienes notificaciones' mensaje='Cuando otro usuario te escriba, su mensaje aparecerá aquí.' %}
+    {% endif %}
+</div>
+{% endblock %}

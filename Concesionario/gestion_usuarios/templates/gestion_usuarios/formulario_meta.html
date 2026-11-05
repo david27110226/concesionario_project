@@ -1,0 +1,15 @@
+{% extends 'layout.html' %}
+
+{% block titulo_pagina %}Asignar meta{% endblock %}
+{% block miga %}<a href="{% url 'usuarios:lista_usuarios' %}">Usuarios</a> / <a href="{% url 'usuarios:detalle_usuario' usuario.id %}">{{ usuario.nombre_usuario }}</a> / Meta{% endblock %}
+{% block titulo %}Asignar meta a {{ usuario.nombre }} {{ usuario.apellido }}{% endblock %}
+{% block subtitulo %}Las ventas realizadas se cuentan solas con las ventas que registre el usuario en ese mes.{% endblock %}
+
+{% block contenido %}
+{% url 'usuarios:detalle_usuario' usuario.id as cancelar %}
+<div class="tarjeta formulario-tarjeta">
+    <form method="post" class="tarjeta-cuerpo">
+        {% include 'parciales/formulario.html' with url_cancelar=cancelar texto_boton='Asignar meta' %}
+    </form>
+</div>
+{% endblock %}

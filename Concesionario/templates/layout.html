@@ -17,14 +17,18 @@
             <span><strong>AutoNova</strong><small>Concesionario</small></span>
         </a>
 
-        {% with ns=request.resolver_match.namespace ruta=request.resolver_match.url_name %}
+        {% with ns=request.resolver_match.namespace ruta=request.resolver_match.url_name permisos=request.session.usuario.permisos %}
         <nav class="menu">
             <div class="menu-grupo">
                 <a class="menu-enlace {% if ruta == 'inicio' %}activo{% endif %}" href="{% url 'inicio' %}">
                     {% include 'parciales/icono.html' with nombre='inicio' %} Inicio
                 </a>
+                <a class="menu-enlace {% if 'notificacion' in ruta %}activo{% endif %}" href="{% url 'usuarios:notificaciones' %}">
+                    {% include 'parciales/icono.html' with nombre='campana' %} Notificaciones
+                </a>
             </div>
 
+            {% if permisos.clientes %}
             <div class="menu-grupo">
                 <div class="menu-titulo">Clientes y vehículos</div>
                 <a class="menu-enlace {% if ns == 'clientes' and 'cliente' in ruta %}activo{% endif %}" href="{% url 'clientes:lista_clientes' %}">
@@ -34,27 +38,33 @@
                     {% include 'parciales/icono.html' with nombre='vehiculo' %} Vehículos
                 </a>
             </div>
+            {% endif %}
 
+            {% if permisos.historial %}
             <div class="menu-grupo">
                 <div class="menu-titulo">Historial</div>
-                <a class="menu-enlace {% if ns == 'historial' and 'taller' not in ruta %}activo{% endif %}" href="{% url 'historial:lista_historiales' %}">
-                    {% include 'parciales/icono.html' with nombre='historial' %} Mantenimientos
-                </a>
-                <a class="menu-enlace {% if ns == 'historial' and 'taller' in ruta %}activo{% endif %}" href="{% url 'historial:lista_talleres' %}">
-                    {% include 'parciales/icono.html' with nombre='taller' %} Talleres
+                <a class="menu-enlace {% if ns == 'historial' %}activo{% endif %}" href="{% url 'historial:lista_historiales' %}">
+                    {% include 'parciales/icono.html' with nombre='historial' %} Historial de vehículos
                 </a>
             </div>
+            {% endif %}
 
+            {% if permisos.ventas %}
             <div class="menu-grupo">
                 <div class="menu-titulo">Ventas</div>
                 <a class="menu-enlace {% if ns == 'ventas' and 'cotizacion' in ruta %}activo{% endif %}" href="{% url 'ventas:lista_cotizaciones' %}">
                     {% include 'parciales/icono.html' with nombre='cotizacion' %} Cotizaciones
                 </a>
-                <a class="menu-enlace {% if ns == 'ventas' and 'cotizacion' not in ruta %}activo{% endif %}" href="{% url 'ventas:lista_ventas' %}">
+                <a class="menu-enlace {% if ns == 'ventas' and 'venta' in ruta %}activo{% endif %}" href="{% url 'ventas:lista_ventas' %}">
                     {% include 'parciales/icono.html' with nombre='venta' %} Ventas
                 </a>
+                <a class="menu-enlace {% if ns == 'ventas' and 'plantilla' in ruta or ns == 'ventas' and 'condicion' in ruta or ns == 'ventas' and 'descuento' in ruta %}activo{% endif %}" href="{% url 'ventas:lista_plantillas' %}">
+                    {% include 'parciales/icono.html' with nombre='plantilla' %} Plantillas
+                </a>
             </div>
+            {% endif %}
 
+            {% if permisos.pagos %}
             <div class="menu-grupo">
                 <div class="menu-titulo">Pagos y facturación</div>
                 <a class="menu-enlace {% if ns == 'pagos' and ruta != 'lista_pagos' %}activo{% endif %}" href="{% url 'pagos:lista_facturas' %}">
@@ -64,17 +74,30 @@
                     {% include 'parciales/icono.html' with nombre='pago' %} Pagos recibidos
                 </a>
             </div>
+            {% endif %}
 
+            {% if permisos.usuarios %}
             <div class="menu-grupo">
                 <div class="menu-titulo">Administración</div>
-                <a class="menu-enlace {% if ns == 'usuarios' and 'rol' not in ruta %}activo{% endif %}" href="{% url 'usuarios:lista_usuarios' %}">
+                <a class="menu-enlace {% if ns == 'usuarios' and 'notificacion' not in ruta %}activo{% endif %}" href="{% url 'usuarios:lista_usuarios' %}">
                     {% include 'parciales/icono.html' with nombre='usuario' %} Usuarios
                 </a>
-                <a class="menu-enlace {% if ns == 'usuarios' and 'rol' in ruta %}activo{% endif %}" href="{% url 'usuarios:lista_roles' %}">
-                    {% include 'parciales/icono.html' with nombre='rol' %} Roles
-                </a>
             </div>
+            {% endif %}
         </nav>
+        {% endwith %}
+
+        {% with sesion=request.session.usuario %}
+        <div class="sesion">
+            <div class="avatar">{{ sesion.nombre|slice:":1" }}{{ sesion.apellido|slice:":1" }}</div>
+            <div class="sesion-datos">
+                <strong>{{ sesion.nombre }} {{ sesion.apellido }}</strong>
+                <small>{{ sesion.rol }}</small>
+            </div>
+            <a class="boton-icono" href="{% url 'usuarios:logout' %}" title="Cerrar sesión">
+                {% include 'parciales/icono.html' with nombre='salir' %}
+            </a>
+        </div>
         {% endwith %}
     </aside>
 

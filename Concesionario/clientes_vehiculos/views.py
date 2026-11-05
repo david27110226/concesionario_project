@@ -1,11 +1,10 @@
 from django.db.models import Q
 from django.shortcuts import redirect, render
 
-from historial_vehiculo.models import HistorialVehiculo
+from gestion_usuarios.sesion import registrar_auditoria, requiere_permiso
 from pagos_facturacion.models import Factura
-from ventas_cotizaciones.models import Cotizacion, Venta
 from .forms import FormularioCliente, FormularioVehiculo
-from .models import ESTADOS_VEHICULO, TIPOS_VEHICULO, Cliente, Vehiculo
+from .models import Cliente, Vehiculo
 
 
 def buscar_cliente(id):
@@ -22,31 +21,39 @@ def buscar_vehiculo(id):
         return None
 
 
-def direccion_desde(datos):
-    if not datos['calle']:
-        return None
-    return {'ciudad': datos['ciudad'], 'barrio': datos['barrio'], 'calle': datos['calle']}
+def todas_las_cotizaciones():
+    """Recorre las cotizaciones embebidas en todos los clientes.
+    Cada elemento trae el cliente y la posición de la cotización en su arreglo."""
+    lista = []
+    for cliente in Cliente.objects.all():
+        for indice, cotizacion in enumerate(cliente.cotizaciones):
+            lista.append(dict(cotizacion, cliente=cliente, indice=indice))
+    return lista
 
 
-def ficha_desde(datos):
-    return {
-        'motor': datos['motor'],
-        'cilindraje': datos['cilindraje'],
-        'transmision': datos['transmision'],
-        'combustible': datos['combustible'],
-        'puertas': datos['puertas'],
-    }
+def actualizar_estado_vehiculo(placa):
+    """El estado del vehículo depende de sus cotizaciones:
+    vendido si tiene una venta, reservado si tiene una cotización aprobada."""
+    cotizaciones = [c for c in todas_las_cotizaciones() if c['vehiculo']['placa'] == placa]
+    if any(c['venta'] for c in cotizaciones):
+        estado = 'vendido'
+    elif any(c['estado'] == 'aprobada' for c in cotizaciones):
+        estado = 'reservado'
+    else:
+        estado = 'disponible'
+    Vehiculo.objects.filter(placa=placa).update(estado=estado)
 
 
 # ---------------- Clientes ----------------
 
+@requiere_permiso('clientes')
 def lista_clientes(request):
     clientes = Cliente.objects.all().order_by('-id')
     busqueda = request.GET.get('q', '').strip()
     if busqueda:
         clientes = clientes.filter(
             Q(nombre__icontains=busqueda) | Q(apellido__icontains=busqueda) |
-            Q(documento__icontains=busqueda) | Q(email__icontains=busqueda)
+            Q(cedula__icontains=busqueda) | Q(email__icontains=busqueda)
         )
     return render(request, 'clientes_vehiculos/lista_clientes.html', {
         'clientes': clientes,
@@ -55,25 +62,23 @@ def lista_clientes(request):
     })
 
 
+@requiere_permiso('clientes')
 def crear_cliente(request):
     if request.method == 'POST':
         formulario = FormularioCliente(request.POST)
         if formulario.is_valid():
             datos = formulario.cleaned_data
-            if Cliente.objects.filter(documento=datos['documento']).exists():
-                formulario.add_error('documento', 'Ya existe un cliente con ese documento.')
-            else:
-                cliente = Cliente.objects.create(
-                    tipo_documento=datos['tipo_documento'],
-                    documento=datos['documento'],
-                    nombre=datos['nombre'],
-                    apellido=datos['apellido'],
-                    email=datos['email'],
-                    telefono=datos['telefono'],
-                    fecha_nacimiento=datos['fecha_nacimiento'],
-                    direccion=direccion_desde(datos),
-                )
-                return redirect('clientes:detalle_cliente', id=cliente.id)
+            cliente = Cliente.objects.create(
+                nombre=datos['nombre'],
+                apellido=datos['apellido'],
+                cedula=datos['cedula'],
+                email=datos['email'],
+                telefono=datos['telefono'],
+                direccion=datos['direccion'],
+                cotizaciones=[],
+            )
+            registrar_auditoria(request, 'crear', 'clientes', f'Registró al cliente {cliente.cedula}')
+            return redirect('clientes:detalle_cliente', id=cliente.id)
     else:
         formulario = FormularioCliente()
 
@@ -83,91 +88,80 @@ def crear_cliente(request):
     })
 
 
+@requiere_permiso('clientes')
 def detalle_cliente(request, id):
     cliente = buscar_cliente(id)
     if cliente is None:
         return redirect('clientes:lista_clientes')
 
-    # El cliente se registra una sola vez; los demás módulos guardan su resumen embebido
-    filtro = {'documento': cliente.documento}
-    cotizaciones = Cotizacion.objects.filter(cliente=filtro).order_by('-id')
-    ventas = Venta.objects.filter(cliente=filtro).order_by('-id')
-    facturas = Factura.objects.filter(cliente=filtro).order_by('-id')
-
+    cotizaciones = [dict(c, indice=i) for i, c in enumerate(cliente.cotizaciones)]
+    compras = [c for c in cotizaciones if c['venta']]
     return render(request, 'clientes_vehiculos/detalle_cliente.html', {
         'cliente': cliente,
         'cotizaciones': cotizaciones,
-        'ventas': ventas,
-        'facturas': facturas,
-        'total_compras': sum(v.precio_final for v in ventas if v.estado == 'activa'),
+        'compras': compras,
+        'total_compras': sum(c['venta']['precio_final'] or 0 for c in compras),
+        'facturas': Factura.objects.filter(cedula_cliente=cliente.cedula).order_by('-id'),
     })
 
 
+@requiere_permiso('clientes')
 def editar_cliente(request, id):
     cliente = buscar_cliente(id)
     if cliente is None:
         return redirect('clientes:lista_clientes')
 
     if request.method == 'POST':
-        formulario = FormularioCliente(request.POST, editando=True,
-                                       initial={'documento': cliente.documento})
+        formulario = FormularioCliente(request.POST, editando=True, initial={'cedula': cliente.cedula})
         if formulario.is_valid():
             datos = formulario.cleaned_data
-            cliente.tipo_documento = datos['tipo_documento']
             cliente.nombre = datos['nombre']
             cliente.apellido = datos['apellido']
-            cliente.email = datos['email']
             cliente.telefono = datos['telefono']
-            cliente.fecha_nacimiento = datos['fecha_nacimiento']
-            cliente.direccion = direccion_desde(datos)
+            cliente.email = datos['email']
+            cliente.direccion = datos['direccion']
             cliente.save()
-            # Las cotizaciones abiertas se actualizan con los nuevos datos de contacto
-            for cotizacion in Cotizacion.objects.filter(cliente={'documento': cliente.documento}):
-                if cotizacion.estado in ('pendiente', 'aprobada'):
-                    cotizacion.cliente = cliente.resumen()
-                    cotizacion.save()
+            registrar_auditoria(request, 'editar', 'clientes', f'Editó al cliente {cliente.cedula}')
             return redirect('clientes:detalle_cliente', id=cliente.id)
     else:
-        direccion = cliente.direccion or {}
         formulario = FormularioCliente(editando=True, initial={
-            'tipo_documento': cliente.tipo_documento,
-            'documento': cliente.documento,
+            'cedula': cliente.cedula,
             'nombre': cliente.nombre,
             'apellido': cliente.apellido,
             'telefono': cliente.telefono,
             'email': cliente.email,
-            'fecha_nacimiento': cliente.fecha_nacimiento,
-            'ciudad': direccion.get('ciudad', ''),
-            'barrio': direccion.get('barrio', ''),
-            'calle': direccion.get('calle', ''),
+            'direccion': cliente.direccion,
         })
 
     return render(request, 'clientes_vehiculos/formulario_cliente.html', {
         'formulario': formulario,
-        'titulo': f'Editar cliente {cliente.nombre_completo()}',
+        'titulo': f'Editar cliente {cliente.nombre} {cliente.apellido}',
         'cliente': cliente,
     })
 
 
+@requiere_permiso('clientes')
 def eliminar_cliente(request, id):
     cliente = buscar_cliente(id)
     if cliente is None:
         return redirect('clientes:lista_clientes')
 
-    filtro = {'documento': cliente.documento}
-    bloqueado = Venta.objects.filter(cliente=filtro).exists() or Factura.objects.filter(cliente=filtro).exists()
-
-    if request.method == 'POST' and not bloqueado:
-        Cotizacion.objects.filter(cliente=filtro).delete()
+    con_ventas = any(c['venta'] for c in cliente.cotizaciones)
+    if request.method == 'POST' and not con_ventas:
+        placas = [c['vehiculo']['placa'] for c in cliente.cotizaciones]
         cliente.delete()
+        for placa in placas:
+            actualizar_estado_vehiculo(placa)
+        registrar_auditoria(request, 'eliminar', 'clientes', f'Eliminó al cliente {cliente.cedula}')
         return redirect('clientes:lista_clientes')
 
+    cantidad = len(cliente.cotizaciones)
     return render(request, 'confirmar_eliminar.html', {
         'titulo': 'Eliminar cliente',
-        'objeto': f'{cliente.nombre_completo()} · {cliente.documento}',
-        'bloqueado': bloqueado,
-        'motivo': 'El cliente tiene ventas o facturas registradas y no se puede eliminar.',
-        'advertencia': 'También se eliminarán sus cotizaciones.',
+        'objeto': f'{cliente.nombre} {cliente.apellido} (C.C. {cliente.cedula})',
+        'bloqueado': con_ventas,
+        'motivo': 'El cliente tiene ventas registradas. Primero elimina esas ventas.',
+        'advertencia': f'También se eliminarán sus {cantidad} cotizaciones.' if cantidad else '',
         'url_cancelar': 'clientes:detalle_cliente',
         'id_cancelar': cliente.id,
     })
@@ -175,58 +169,48 @@ def eliminar_cliente(request, id):
 
 # ---------------- Vehículos ----------------
 
+@requiere_permiso('clientes')
 def catalogo_vehiculos(request):
     vehiculos = Vehiculo.objects.all().order_by('-id')
     busqueda = request.GET.get('q', '').strip()
     estado = request.GET.get('estado', '')
-    tipo = request.GET.get('tipo', '')
-
     if busqueda:
         vehiculos = vehiculos.filter(
             Q(marca__icontains=busqueda) | Q(modelo__icontains=busqueda) | Q(placa__icontains=busqueda)
         )
     if estado:
         vehiculos = vehiculos.filter(estado=estado)
-    if tipo:
-        vehiculos = vehiculos.filter(tipo=tipo)
 
     return render(request, 'clientes_vehiculos/catalogo_vehiculos.html', {
         'vehiculos': vehiculos,
         'busqueda': busqueda,
         'estado': estado,
-        'tipo': tipo,
-        'estados': ESTADOS_VEHICULO,
-        'tipos': TIPOS_VEHICULO,
-        'disponibles': Vehiculo.objects.filter(estado='disponible').count(),
+        'estados': Vehiculo.ESTADOS,
         'total': Vehiculo.objects.count(),
     })
 
 
+@requiere_permiso('clientes')
 def crear_vehiculo(request):
     if request.method == 'POST':
         formulario = FormularioVehiculo(request.POST)
         if formulario.is_valid():
             datos = formulario.cleaned_data
-            if Vehiculo.objects.filter(placa=datos['placa']).exists():
-                formulario.add_error('placa', 'Ya existe un vehículo con esa placa.')
-            else:
-                vehiculo = Vehiculo(
-                    placa=datos['placa'],
-                    marca=datos['marca'],
-                    modelo=datos['modelo'],
-                    anio=datos['anio'],
-                    color=datos['color'],
-                    tipo=datos['tipo'],
-                    condicion=datos['condicion'],
-                    estado=datos['estado'],
-                    precio=datos['precio'],
-                    kilometraje=datos['kilometraje'],
-                    imagen_url=datos['imagen_url'],
-                    descripcion=datos['descripcion'],
-                    ficha_tecnica=ficha_desde(datos),
-                )
-                vehiculo.save()
-                return redirect('clientes:detalle_vehiculo', id=vehiculo.id)
+            vehiculo = Vehiculo.objects.create(
+                marca=datos['marca'],
+                modelo=datos['modelo'],
+                anio=datos['anio'],
+                color=datos['color'],
+                placa=datos['placa'],
+                precio=datos['precio'],
+                kilometraje=datos['kilometraje'],
+                estado=datos['estado'],
+                descripcion=datos['descripcion'],
+                propietarios_anteriores=[],
+                mantenimientos=[],
+            )
+            registrar_auditoria(request, 'crear', 'vehiculos', f'Registró el vehículo {vehiculo.placa}')
+            return redirect('clientes:detalle_vehiculo', id=vehiculo.id)
     else:
         formulario = FormularioVehiculo()
 
@@ -236,20 +220,21 @@ def crear_vehiculo(request):
     })
 
 
+@requiere_permiso('clientes')
 def detalle_vehiculo(request, id):
     vehiculo = buscar_vehiculo(id)
     if vehiculo is None:
         return redirect('clientes:catalogo_vehiculos')
 
-    filtro = {'placa': vehiculo.placa}
+    cotizaciones = [c for c in todas_las_cotizaciones() if c['vehiculo']['placa'] == vehiculo.placa]
     return render(request, 'clientes_vehiculos/detalle_vehiculo.html', {
         'vehiculo': vehiculo,
-        'historial': HistorialVehiculo.objects.filter(vehiculo=filtro).first(),
-        'cotizaciones': Cotizacion.objects.filter(vehiculo=filtro).order_by('-id'),
-        'venta': Venta.objects.filter(vehiculo=filtro, estado='activa').first(),
+        'cotizaciones': cotizaciones,
+        'costo_mantenimientos': sum(m['costo'] or 0 for m in vehiculo.mantenimientos),
     })
 
 
+@requiere_permiso('clientes')
 def editar_vehiculo(request, id):
     vehiculo = buscar_vehiculo(id)
     if vehiculo is None:
@@ -263,40 +248,24 @@ def editar_vehiculo(request, id):
             vehiculo.modelo = datos['modelo']
             vehiculo.anio = datos['anio']
             vehiculo.color = datos['color']
-            vehiculo.tipo = datos['tipo']
-            vehiculo.condicion = datos['condicion']
-            vehiculo.estado = datos['estado']
             vehiculo.precio = datos['precio']
             vehiculo.kilometraje = datos['kilometraje']
-            vehiculo.imagen_url = datos['imagen_url']
+            vehiculo.estado = datos['estado']
             vehiculo.descripcion = datos['descripcion']
-            vehiculo.ficha_tecnica = ficha_desde(datos)
             vehiculo.save()
-            # El historial guarda un resumen del vehículo: se mantiene sincronizado
-            for historial in HistorialVehiculo.objects.filter(vehiculo={'placa': vehiculo.placa}):
-                historial.vehiculo = vehiculo.resumen()
-                historial.save()
+            registrar_auditoria(request, 'editar', 'vehiculos', f'Editó el vehículo {vehiculo.placa}')
             return redirect('clientes:detalle_vehiculo', id=vehiculo.id)
     else:
-        ficha = vehiculo.ficha_tecnica or {}
         formulario = FormularioVehiculo(editando=True, initial={
             'placa': vehiculo.placa,
             'marca': vehiculo.marca,
             'modelo': vehiculo.modelo,
             'anio': vehiculo.anio,
             'color': vehiculo.color,
-            'tipo': vehiculo.tipo,
-            'condicion': vehiculo.condicion,
-            'estado': vehiculo.estado,
             'precio': vehiculo.precio,
             'kilometraje': vehiculo.kilometraje,
-            'imagen_url': vehiculo.imagen_url,
+            'estado': vehiculo.estado,
             'descripcion': vehiculo.descripcion,
-            'motor': ficha.get('motor', ''),
-            'cilindraje': ficha.get('cilindraje'),
-            'transmision': ficha.get('transmision'),
-            'combustible': ficha.get('combustible'),
-            'puertas': ficha.get('puertas', 4),
         })
 
     return render(request, 'clientes_vehiculos/formulario_vehiculo.html', {
@@ -306,26 +275,24 @@ def editar_vehiculo(request, id):
     })
 
 
+@requiere_permiso('clientes')
 def eliminar_vehiculo(request, id):
     vehiculo = buscar_vehiculo(id)
     if vehiculo is None:
         return redirect('clientes:catalogo_vehiculos')
 
-    filtro = {'placa': vehiculo.placa}
-    bloqueado = Venta.objects.filter(vehiculo=filtro).exists() or Factura.objects.filter(vehiculo=filtro).exists()
-
-    if request.method == 'POST' and not bloqueado:
-        Cotizacion.objects.filter(vehiculo=filtro).delete()
-        HistorialVehiculo.objects.filter(vehiculo=filtro).delete()
+    cotizado = any(c['vehiculo']['placa'] == vehiculo.placa for c in todas_las_cotizaciones())
+    if request.method == 'POST' and not cotizado:
         vehiculo.delete()
+        registrar_auditoria(request, 'eliminar', 'vehiculos', f'Eliminó el vehículo {vehiculo.placa}')
         return redirect('clientes:catalogo_vehiculos')
 
     return render(request, 'confirmar_eliminar.html', {
         'titulo': 'Eliminar vehículo',
-        'objeto': str(vehiculo),
-        'bloqueado': bloqueado,
-        'motivo': 'El vehículo ya tiene una venta o factura registrada y no se puede eliminar.',
-        'advertencia': 'También se eliminarán su historial y sus cotizaciones.',
+        'objeto': f'{vehiculo.marca} {vehiculo.modelo} ({vehiculo.placa})',
+        'bloqueado': cotizado,
+        'motivo': 'El vehículo aparece en cotizaciones de clientes. Primero elimina esas cotizaciones.',
+        'advertencia': 'También se borrará su historial de propietarios y mantenimientos.',
         'url_cancelar': 'clientes:detalle_vehiculo',
         'id_cancelar': vehiculo.id,
     })

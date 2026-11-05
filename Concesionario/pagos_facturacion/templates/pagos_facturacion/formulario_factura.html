@@ -3,15 +3,12 @@
 {% block titulo_pagina %}{{ titulo }}{% endblock %}
 {% block miga %}<a href="{% url 'pagos:lista_facturas' %}">Facturas</a> / Formulario{% endblock %}
 {% block titulo %}{{ titulo }}{% endblock %}
-{% block subtitulo %}El total de la factura es el valor de la venta; el IVA ya está incluido.{% endblock %}
+{% block subtitulo %}{% if factura %}El total se recalcula con el subtotal y el IVA.{% else %}Solo aparecen las ventas que todavía no tienen factura. El cliente, la placa y el subtotal se toman de la venta.{% endif %}{% endblock %}
 
 {% block contenido %}
 {% if factura %}{% url 'pagos:detalle_factura' factura.id as cancelar %}{% else %}{% url 'pagos:lista_facturas' as cancelar %}{% endif %}
 <div class="tarjeta formulario-tarjeta">
     <form method="post" class="tarjeta-cuerpo">
-        {% if not factura %}
-            <div class="alerta alerta-info">Solo aparecen las ventas activas que todavía no tienen factura. Los datos del cliente y del vehículo se copian de la venta.</div>
-        {% endif %}
         {% include 'parciales/formulario.html' with url_cancelar=cancelar %}
     </form>
 </div>

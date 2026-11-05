@@ -1,0 +1,52 @@
+{% extends 'layout.html' %}
+
+{% block titulo_pagina %}Plantillas de cotización{% endblock %}
+{% block miga %}Ventas{% endblock %}
+{% block titulo %}Plantillas de cotización{% endblock %}
+{% block subtitulo %}{{ total }} plantilla{{ total|pluralize }}. Sus descuentos se pueden aplicar al crear una cotización.{% endblock %}
+{% block acciones %}
+    <a class="boton boton-primario" href="{% url 'ventas:crear_plantilla' %}">
+        {% include 'parciales/icono.html' with nombre='mas' %} Nueva plantilla
+    </a>
+{% endblock %}
+
+{% block contenido %}
+<div class="tarjeta">
+    <form class="filtros" method="get">
+        <input type="search" name="q" value="{{ busqueda }}" placeholder="Buscar por nombre o descripción…">
+        <button class="boton boton-secundario" type="submit">Buscar</button>
+        {% if busqueda %}<a class="boton boton-secundario" href="{% url 'ventas:lista_plantillas' %}">Limpiar</a>{% endif %}
+    </form>
+
+    {% if plantillas %}
+    <div class="tabla-contenedor">
+        <table>
+            <thead>
+                <tr><th>Plantilla</th><th class="texto-derecha">Condiciones</th><th class="texto-derecha">Descuentos</th><th>Creada por</th><th>Estado</th></tr>
+            </thead>
+            <tbody>
+            {% for plantilla in plantillas %}
+                <tr class="fila-enlace" onclick="window.location='{% url 'ventas:detalle_plantilla' plantilla.id %}'">
+                    <td><span class="fuerte">{{ plantilla.nombre }}</span><br>
+                        <span class="texto-suave texto-pequeno">{{ plantilla.descripcion|default:"Sin descripción"|truncatechars:70 }}</span></td>
+                    <td class="texto-derecha">{{ plantilla.condiciones|length }}</td>
+                    <td class="texto-derecha">{{ plantilla.descuentos|length }}</td>
+                    <td>{{ plantilla.creado_por.nombre }} {{ plantilla.creado_por.apellido }}<br>
+                        <span class="texto-suave texto-pequeno">{{ plantilla.fecha_creacion|date:"d M Y" }}</span></td>
+                    <td>
+                        {% if plantilla.activa %}
+                            {% include 'parciales/estado.html' with valor='activa' texto='Activa' %}
+                        {% else %}
+                            {% include 'parciales/estado.html' with valor='inactivo' texto='Inactiva' %}
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+        {% include 'parciales/vacio.html' with icono='plantilla' titulo='No hay plantillas' mensaje='Crea una plantilla con las condiciones y descuentos que usa el concesionario.' %}
+    {% endif %}
+</div>
+{% endblock %}
