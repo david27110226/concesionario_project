@@ -18,7 +18,7 @@ class DetallePago(models.Model):
     tipo_pago = models.CharField(max_length=30, choices=TIPOS_PAGO)
     forma_pago = models.CharField(max_length=20, choices=FORMA_PAGO)
     monto = models.FloatField()
-    fecha_pago = models.DateField(auto_now_add=True)
+    fecha_pago = models.DateField()
     numero_referencia = models.CharField(max_length=50, blank=True)
     observaciones = models.TextField(blank=True)
 

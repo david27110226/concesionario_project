@@ -3,7 +3,7 @@
 {% block titulo_pagina %}Pagos recibidos{% endblock %}
 {% block miga %}Pagos y facturación{% endblock %}
 {% block titulo %}Pagos recibidos{% endblock %}
-{% block subtitulo %}Todos los pagos de las facturas vigentes. Total: ${{ total|floatformat:0 }}{% endblock %}
+{% block subtitulo %}Total recaudado en facturas vigentes: ${{ total|floatformat:0 }}{% if por_devolver %} · Pagos de facturas anuladas (por devolver): ${{ por_devolver|floatformat:0 }}{% endif %}{% endblock %}
 
 {% block contenido %}
 <div class="tarjeta">
@@ -28,7 +28,7 @@
             {% for pago in pagos %}
                 <tr class="fila-enlace" onclick="window.location='{% url 'pagos:detalle_factura' pago.factura.id %}'">
                     <td class="texto-suave">{{ pago.fecha_pago|date:"d M Y" }}</td>
-                    <td class="fuerte">{{ pago.factura.numero_factura }}</td>
+                    <td><span class="fuerte">{{ pago.factura.numero_factura }}</span>{% if pago.anulada %}<br>{% include 'parciales/estado.html' with valor='anulada' texto='Anulada · por devolver' %}{% endif %}</td>
                     <td>{{ pago.factura.nombre_cliente }}</td>
                     <td>{{ pago.medio }}<br><span class="texto-suave texto-pequeno">{{ pago.forma_pago|capfirst }}</span></td>
                     <td>{{ pago.numero_referencia|default:"—" }}</td>

@@ -14,7 +14,7 @@
     <a class="boton boton-secundario" href="{% url 'pagos:editar_factura' factura.id %}">
         {% include 'parciales/icono.html' with nombre='editar' %} Editar
     </a>
-    <form method="post" action="{% url 'pagos:anular_factura' factura.id %}" onsubmit="return confirm('¿Anular la factura {{ factura.numero_factura }}? La venta quedará libre para volver a facturarse.')">
+    <form method="post" action="{% url 'pagos:anular_factura' factura.id %}" onsubmit="return confirm('¿Anular la factura {{ factura.numero_factura }}? La venta quedará libre para volver a facturarse.{% if pagos %} Los pagos recibidos (${{ pagado|floatformat:0 }}) quedarán como dinero por devolver al cliente.{% endif %}')">
         {% csrf_token %}
         <button class="boton boton-secundario" type="submit">{% include 'parciales/icono.html' with nombre='x' %} Anular</button>
     </form>
@@ -81,7 +81,7 @@
                 <div class="resumen-total"><span class="fuerte">Saldo</span><span class="fuerte">${{ saldo|floatformat:0 }}</span></div>
             </div>
             {% else %}
-            <div class="alerta alerta-aviso separado">Factura anulada. La venta puede volver a facturarse.</div>
+            <div class="alerta alerta-aviso separado">Factura anulada. La venta puede volver a facturarse.{% if pagado %} Hay ${{ pagado|floatformat:0 }} en pagos recibidos por devolver al cliente.{% endif %}</div>
             {% endif %}
 
             <div class="datos separado">

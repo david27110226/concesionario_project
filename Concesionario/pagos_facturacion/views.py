@@ -1,5 +1,6 @@
 import datetime
 
+from django.db import connection
 from django.db.models import Q
 from django.shortcuts import redirect, render
 
@@ -26,23 +27,43 @@ def saldo(factura):
 
 
 def actualizar_estado(factura):
+    """Una factura sin saldo (incluida una de total $0) queda pagada."""
     if factura.estado != 'anulada':
         factura.estado = 'pagada' if saldo(factura) < 1 else 'emitida'
 
 
+def porcentaje_iva(factura):
+    if not factura.subtotal:
+        return 0
+    return round(factura.impuesto_iva * 100 / factura.subtotal, 2)
+
+
 def siguiente_numero():
+    """Consecutivo que nunca se repite, aunque se eliminen facturas.
+    Usa el mayor entre los números existentes y el contador de ids de djongo
+    (ese contador solo aumenta, incluso cuando se borra una factura)."""
     numeros = [int(f.numero_factura.split('-')[1]) for f in Factura.objects.all()]
-    return f'FAC-{max(numeros, default=0) + 1:05d}'
+    connection.ensure_connection()
+    esquema = connection.connection['__schema__'].find_one({'name': Factura._meta.db_table}) or {}
+    contador = esquema.get('auto', {}).get('seq', 0)
+    return f'FAC-{max(numeros + [contador]) + 1:05d}'
+
+
+def cotizacion_de_factura(factura):
+    """Cotización cuya venta tiene el número de esta factura (o None)."""
+    for cotizacion in Cotizacion.objects.all():
+        venta = cotizacion.venta
+        if venta and venta['numero_factura'] == factura.numero_factura:
+            return cotizacion
+    return None
 
 
 def asignar_numero_a_venta(factura, numero):
     """Guarda (o borra) el número de factura dentro de la venta de la cotización."""
-    for cotizacion in Cotizacion.objects.all():
-        venta = cotizacion.venta
-        if venta and venta['numero_factura'] == factura.numero_factura:
-            venta['numero_factura'] = numero
-            cotizacion.save()
-            return
+    cotizacion = cotizacion_de_factura(factura)
+    if cotizacion:
+        cotizacion.venta['numero_factura'] = numero
+        cotizacion.save()
 
 
 # ---------------- Facturas ----------------
@@ -92,6 +113,9 @@ def crear_factura(request):
                 estado='emitida',
                 pagos=[],
             )
+            actualizar_estado(factura)
+            if factura.estado != 'emitida':
+                factura.save()
             cotizacion.venta['numero_factura'] = factura.numero_factura
             cotizacion.save()
             registrar_auditoria(request, 'crear', 'pagos', f'Generó la factura {factura.numero_factura}')
@@ -120,7 +144,7 @@ def detalle_factura(request, id):
         'pagado': pagado,
         'saldo': saldo(factura),
         'porcentaje': min(round(pagado * 100 / factura.total), 100) if factura.total else 0,
-        'iva_porcentaje': round(factura.impuesto_iva * 100 / factura.subtotal, 2) if factura.subtotal else 0,
+        'iva_porcentaje': porcentaje_iva(factura),
     })
 
 
@@ -140,12 +164,17 @@ def editar_factura(request, id):
             factura.total = factura.subtotal + factura.impuesto_iva
             actualizar_estado(factura)
             factura.save()
+            # La venta y la factura deben tener el mismo valor
+            cotizacion = cotizacion_de_factura(factura)
+            if cotizacion and cotizacion.venta['precio_final'] != factura.subtotal:
+                cotizacion.venta['precio_final'] = factura.subtotal
+                cotizacion.save()
             registrar_auditoria(request, 'editar', 'pagos', f'Editó la factura {factura.numero_factura}')
             return redirect('pagos:detalle_factura', id=factura.id)
     else:
         formulario = FormularioEditarFactura(pagado=pagado, initial={
             'subtotal': factura.subtotal,
-            'iva_porcentaje': round(factura.impuesto_iva * 100 / factura.subtotal, 2),
+            'iva_porcentaje': porcentaje_iva(factura),
         })
 
     return render(request, 'pagos_facturacion/formulario_factura.html', {
@@ -286,15 +315,19 @@ def lista_pagos(request):
     medio = request.GET.get('medio', '')
     medios = dict(DetallePago.TIPOS_PAGO)
     pagos = []
-    for factura in Factura.objects.exclude(estado='anulada'):
+    for factura in Factura.objects.all():
         for pago in factura.pagos:
             if not medio or pago['tipo_pago'] == medio:
-                pagos.append(dict(pago, factura=factura, medio=medios[pago['tipo_pago']]))
+                pagos.append(dict(pago, factura=factura, medio=medios[pago['tipo_pago']],
+                                  anulada=factura.estado == 'anulada'))
     pagos.sort(key=lambda p: p['fecha_pago'], reverse=True)
 
+    # Los pagos de facturas anuladas se siguen mostrando (dinero por devolver),
+    # pero no cuentan como recaudado.
     return render(request, 'pagos_facturacion/lista_pagos.html', {
         'pagos': pagos,
         'medio': medio,
         'medios': DetallePago.TIPOS_PAGO,
-        'total': sum(p['monto'] for p in pagos),
+        'total': sum(p['monto'] for p in pagos if not p['anulada']),
+        'por_devolver': sum(p['monto'] for p in pagos if p['anulada']),
     })
