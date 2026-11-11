@@ -47,7 +47,7 @@
                     <thead><tr><th>Vehículo</th><th>Asesor</th><th>Fecha</th><th>Estado</th><th class="texto-derecha">Oferta</th></tr></thead>
                     <tbody>
                     {% for cotizacion in cotizaciones %}
-                        <tr {% if request.session.usuario.permisos.ventas %}class="fila-enlace" onclick="window.location='{% url 'ventas:detalle_cotizacion' cliente.id cotizacion.indice %}'"{% endif %}>
+                        <tr {% if request.session.usuario.permisos.ventas %}class="fila-enlace" onclick="window.location='{% url 'ventas:detalle_cotizacion' cotizacion.id %}'"{% endif %}>
                             <td><span class="fuerte">{{ cotizacion.vehiculo.marca }} {{ cotizacion.vehiculo.modelo }}</span><br>
                                 <span class="texto-suave texto-pequeno">{{ cotizacion.vehiculo.placa }}</span></td>
                             <td>{{ cotizacion.vendedor.nombre }} {{ cotizacion.vendedor.apellido }}</td>
@@ -95,6 +95,32 @@
             </ul>
             {% else %}
                 {% include 'parciales/vacio.html' with icono='venta' titulo='Sin compras' mensaje='Cuando el cliente compre un vehículo aparecerá aquí.' %}
+            {% endif %}
+        </div>
+
+        <div class="tarjeta">
+            <div class="tarjeta-titulo">
+                <h2>Seguimientos</h2>
+                <a href="{% url 'clientes:agregar_seguimiento' cliente.id %}">+ Registrar</a>
+            </div>
+            {% if seguimientos %}
+            <ul class="lista-simple">
+                {% for seguimiento in seguimientos %}
+                <li>
+                    <div>
+                        <span class="fuerte">{{ seguimiento.nombre_medio }}</span>
+                        <span class="texto-suave texto-pequeno">· {{ seguimiento.fecha|date:"d M Y" }} · {{ seguimiento.asesor }}</span><br>
+                        <span class="texto-suave">{{ seguimiento.comentario }}</span>
+                    </div>
+                    <div class="acciones">
+                        <a class="boton-icono" href="{% url 'clientes:editar_seguimiento' cliente.id seguimiento.indice %}" title="Editar">{% include 'parciales/icono.html' with nombre='editar' %}</a>
+                        <a class="boton-icono" href="{% url 'clientes:eliminar_seguimiento' cliente.id seguimiento.indice %}" title="Borrar">{% include 'parciales/icono.html' with nombre='eliminar' %}</a>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+                {% include 'parciales/vacio.html' with icono='campana' titulo='Sin seguimientos' mensaje='Registra aquí las llamadas, visitas o mensajes con el cliente.' %}
             {% endif %}
         </div>
     </div>

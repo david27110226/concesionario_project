@@ -1,0 +1,50 @@
+{% extends 'layout.html' %}
+
+{% block titulo_pagina %}Mantenimientos{% endblock %}
+{% block miga %}<a href="{% url 'historial:lista_historiales' %}">Historial</a> / Mantenimientos{% endblock %}
+{% block titulo %}Mantenimientos{% endblock %}
+{% block subtitulo %}Todos los servicios de taller registrados en los vehículos del inventario.{% endblock %}
+
+{% block contenido %}
+<div class="tarjeta">
+    <form class="filtros" method="get">
+        <select name="tipo">
+            <option value="">Todos los tipos</option>
+            {% for valor, texto in tipos %}
+                <option value="{{ valor }}" {% if valor == tipo %}selected{% endif %}>{{ texto }}</option>
+            {% endfor %}
+        </select>
+        <button class="boton boton-secundario" type="submit">Filtrar</button>
+        {% if tipo %}<a class="boton boton-secundario" href="{% url 'historial:lista_mantenimientos' %}">Limpiar</a>{% endif %}
+        <span class="monto">Total ${{ total|floatformat:0 }}</span>
+    </form>
+
+    {% if filas %}
+    <div class="tabla-contenedor">
+        <table>
+            <thead>
+                <tr><th>Fecha</th><th>Vehículo</th><th>Tipo</th><th>Descripción</th><th class="texto-derecha">Costo</th><th></th></tr>
+            </thead>
+            <tbody>
+            {% for fila in filas %}
+                <tr>
+                    <td class="texto-suave">{{ fila.fecha|date:"d M Y" }}</td>
+                    <td><a class="fuerte" href="{% url 'historial:detalle_historial' fila.vehiculo.id %}">{{ fila.vehiculo.marca }} {{ fila.vehiculo.modelo }}</a><br>
+                        <span class="texto-suave texto-pequeno">{{ fila.vehiculo.placa }}</span></td>
+                    <td><span class="chip">{{ fila.nombre_tipo }}</span></td>
+                    <td class="texto-suave">{{ fila.descripcion|default:"—"|truncatechars:60 }}</td>
+                    <td class="texto-derecha monto">{% if fila.costo is not None %}${{ fila.costo|floatformat:0 }}{% else %}—{% endif %}</td>
+                    <td class="texto-derecha">
+                        <a class="boton-icono" href="{% url 'historial:editar_mantenimiento' fila.vehiculo.id fila.indice %}" title="Modificar">{% include 'parciales/icono.html' with nombre='editar' %}</a>
+                        <a class="boton-icono" href="{% url 'historial:eliminar_mantenimiento' fila.vehiculo.id fila.indice %}" title="Borrar">{% include 'parciales/icono.html' with nombre='eliminar' %}</a>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+        {% include 'parciales/vacio.html' with icono='historial' titulo='No hay mantenimientos' mensaje='Registra mantenimientos desde el historial de cada vehículo.' %}
+    {% endif %}
+</div>
+{% endblock %}

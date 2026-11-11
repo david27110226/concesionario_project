@@ -1,7 +1,7 @@
 from djongo import models
 
-# PropietarioAnterior y Mantenimiento se definen una sola vez en historial_vehiculo
-from historial_vehiculo.models import Mantenimiento, PropietarioAnterior
+# PropietarioAnterior, Mantenimiento y Siniestro se definen una sola vez en historial_vehiculo
+from historial_vehiculo.models import Mantenimiento, PropietarioAnterior, Siniestro
 
 
 class Vehiculo(models.Model):
@@ -29,6 +29,11 @@ class Vehiculo(models.Model):
         model_container=Mantenimiento,
         blank=True
     )
+    siniestros = models.ArrayField(
+        model_container=Siniestro,
+        blank=True,
+        default=list
+    )
 
     class Meta:
         db_table = 'vehiculos'
@@ -37,55 +42,18 @@ class Vehiculo(models.Model):
         return f"{self.marca} {self.modelo} ({self.anio})"
 
 
-class VehiculoCotizacion(models.Model):
-    marca = models.CharField(max_length=50)
-    modelo = models.CharField(max_length=50)
-    anio = models.IntegerField()
-    placa = models.CharField(max_length=10)
-    precio = models.FloatField(null=True, blank=True)
-
-    class Meta:
-        abstract = True
-
-
-class DetalleVendedor(models.Model):
-    nombre_usuario = models.CharField(max_length=150)
-    nombre = models.CharField(max_length=100)
-    apellido = models.CharField(max_length=100)
-
-    class Meta:
-        abstract = True
-
-
-class Venta(models.Model):
-    fecha_venta = models.DateField(null=True, blank=True)
-    precio_final = models.FloatField(null=True, blank=True)
-    forma_pago = models.CharField(max_length=50, blank=True)
-    # La factura vive solo en la colección facturas (pagos_facturacion);
-    # aquí se guarda únicamente su número para no repetirla.
-    numero_factura = models.CharField(max_length=20, blank=True)
-
-    class Meta:
-        abstract = True
-
-
-class Cotizacion(models.Model):
-    ESTADOS = [
-        ('pendiente', 'Pendiente'),
-        ('aprobada', 'Aprobada'),
-        ('rechazada', 'Rechazada'),
+class Seguimiento(models.Model):
+    """Contacto del asesor con el cliente (llamada, visita, correo...)."""
+    MEDIOS = [
+        ('llamada', 'Llamada'),
+        ('visita', 'Visita'),
+        ('correo', 'Correo'),
+        ('whatsapp', 'WhatsApp'),
     ]
-    vehiculo = models.EmbeddedField(model_container=VehiculoCotizacion)
-    vendedor = models.EmbeddedField(model_container=DetalleVendedor)
-    precio_ofertado = models.FloatField(null=True, blank=True)
     fecha = models.DateField()
-    estado = models.CharField(max_length=20, choices=ESTADOS, default='pendiente')
-    notas = models.TextField(blank=True)
-    venta = models.EmbeddedField(
-        model_container=Venta,
-        null=True,
-        blank=True
-    )
+    medio = models.CharField(max_length=20, choices=MEDIOS)
+    comentario = models.TextField()
+    asesor = models.CharField(max_length=150)
 
     class Meta:
         abstract = True
@@ -99,9 +67,12 @@ class Cliente(models.Model):
     telefono = models.CharField(max_length=20)
     direccion = models.TextField(blank=True)
     fecha_registro = models.DateField(auto_now_add=True)
-    cotizaciones = models.ArrayField(
-        model_container=Cotizacion,
-        blank=True
+    # Las cotizaciones viven en su propia colección (ventas_cotizaciones)
+    # para no tener objetos dentro de objetos.
+    seguimientos = models.ArrayField(
+        model_container=Seguimiento,
+        blank=True,
+        default=list
     )
 
     class Meta:

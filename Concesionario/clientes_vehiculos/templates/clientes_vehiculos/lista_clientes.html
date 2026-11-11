@@ -3,7 +3,7 @@
 {% block titulo_pagina %}Clientes{% endblock %}
 {% block miga %}Clientes y vehículos{% endblock %}
 {% block titulo %}Clientes{% endblock %}
-{% block subtitulo %}{{ total }} cliente{{ total|pluralize }} registrado{{ total|pluralize }}. Las cotizaciones de cada cliente se guardan dentro de él.{% endblock %}
+{% block subtitulo %}{{ total }} cliente{{ total|pluralize }} registrado{{ total|pluralize }}. Cada cliente tiene sus cotizaciones y su historial de seguimientos.{% endblock %}
 {% block acciones %}
     <a class="boton boton-primario" href="{% url 'clientes:crear_cliente' %}">
         {% include 'parciales/icono.html' with nombre='mas' %} Nuevo cliente
@@ -35,7 +35,7 @@
                     </td>
                     <td>{{ cliente.cedula }}</td>
                     <td>{{ cliente.telefono }}<br><span class="texto-suave texto-pequeno">{{ cliente.email|default:"Sin correo" }}</span></td>
-                    <td class="texto-derecha">{{ cliente.cotizaciones|length }}</td>
+                    <td class="texto-derecha">{{ cliente.num_cotizaciones }}</td>
                     <td class="texto-suave">{{ cliente.fecha_registro|date:"d M Y" }}</td>
                 </tr>
             {% endfor %}

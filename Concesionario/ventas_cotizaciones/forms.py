@@ -1,10 +1,8 @@
 from django import forms
 
-from clientes_vehiculos.models import Cliente, Cotizacion, Vehiculo
-from .models import PlantillaCotizacion
-
-
-CAMPO_FECHA = forms.DateInput(attrs={'type': 'date'}, format='%Y-%m-%d')
+from Concesionario.formularios import CampoFecha
+from clientes_vehiculos.models import Cliente, Vehiculo
+from .models import Cotizacion, PlantillaCotizacion
 
 FORMAS_PAGO = [
     ('contado', 'Contado'),
@@ -66,7 +64,7 @@ class FormularioCotizacion(forms.Form):
     descuento = forms.ChoiceField(label='Descuento de plantilla', required=False)
     precio_ofertado = forms.FloatField(label='Precio ofertado (COP)', min_value=0, required=False,
                                        help_text='Si lo dejas vacío se calcula con el precio del vehículo y el descuento.')
-    fecha = forms.DateField(label='Fecha', widget=CAMPO_FECHA, input_formats=['%Y-%m-%d'])
+    fecha = CampoFecha(label='Fecha')
     notas = forms.CharField(label='Notas', required=False, widget=forms.Textarea(attrs={'rows': 3}))
 
     def __init__(self, *args, **kwargs):
@@ -84,7 +82,7 @@ class FormularioCotizacion(forms.Form):
 
 class FormularioEditarCotizacion(forms.Form):
     precio_ofertado = forms.FloatField(label='Precio ofertado (COP)', min_value=0)
-    fecha = forms.DateField(label='Fecha', widget=CAMPO_FECHA, input_formats=['%Y-%m-%d'])
+    fecha = CampoFecha(label='Fecha')
     estado = forms.ChoiceField(label='Estado', choices=Cotizacion.ESTADOS)
     notas = forms.CharField(label='Notas', required=False, widget=forms.Textarea(attrs={'rows': 3}))
 
@@ -97,6 +95,6 @@ class FormularioEditarCotizacion(forms.Form):
 
 
 class FormularioVenta(forms.Form):
-    fecha_venta = forms.DateField(label='Fecha de venta', widget=CAMPO_FECHA, input_formats=['%Y-%m-%d'])
+    fecha_venta = CampoFecha(label='Fecha de venta')
     precio_final = forms.FloatField(label='Precio final (COP)', min_value=0)
     forma_pago = forms.ChoiceField(label='Forma de pago', choices=FORMAS_PAGO)

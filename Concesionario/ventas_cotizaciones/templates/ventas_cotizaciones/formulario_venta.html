@@ -1,12 +1,12 @@
 {% extends 'layout.html' %}
 
 {% block titulo_pagina %}Registrar venta{% endblock %}
-{% block miga %}<a href="{% url 'ventas:lista_cotizaciones' %}">Cotizaciones</a> / <a href="{% url 'ventas:detalle_cotizacion' cliente.id indice %}">Detalle</a> / Venta{% endblock %}
+{% block miga %}<a href="{% url 'ventas:lista_cotizaciones' %}">Cotizaciones</a> / <a href="{% url 'ventas:detalle_cotizacion' cotizacion.id %}">Detalle</a> / Venta{% endblock %}
 {% block titulo %}Registrar venta{% endblock %}
 {% block subtitulo %}{{ cotizacion.vehiculo.marca }} {{ cotizacion.vehiculo.modelo }} ({{ cotizacion.vehiculo.placa }}) para {{ cliente.nombre }} {{ cliente.apellido }}. Oferta: ${{ cotizacion.precio_ofertado|floatformat:0 }}.{% endblock %}
 
 {% block contenido %}
-{% url 'ventas:detalle_cotizacion' cliente.id indice as cancelar %}
+{% url 'ventas:detalle_cotizacion' cotizacion.id as cancelar %}
 <div class="tarjeta formulario-tarjeta">
     <form method="post" class="tarjeta-cuerpo">
         {% include 'parciales/formulario.html' with url_cancelar=cancelar texto_boton='Registrar venta' %}

@@ -5,13 +5,13 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 
 from clientes_vehiculos.models import Cliente, Vehiculo
-from clientes_vehiculos.views import actualizar_estado_vehiculo, todas_las_cotizaciones
+from clientes_vehiculos.views import actualizar_estado_vehiculo, cotizaciones_de_placa, todas_las_cotizaciones
 from gestion_usuarios.sesion import registrar_auditoria, requiere_permiso, vendedor_actual
 from gestion_usuarios.views import actualizar_metas
 from pagos_facturacion.models import Factura
 from .forms import (FORMAS_PAGO, FormularioCondicion, FormularioCotizacion, FormularioDescuento,
                     FormularioEditarCotizacion, FormularioPlantilla, FormularioVenta)
-from .models import PlantillaCotizacion
+from .models import Cotizacion, PlantillaCotizacion
 
 
 def buscar_plantilla(id):
@@ -21,17 +21,21 @@ def buscar_plantilla(id):
         return None
 
 
-def buscar_cotizacion(cliente_id, indice):
-    """Devuelve el cliente y su cotización en la posición indicada."""
-    cliente = Cliente.objects.filter(id=cliente_id).first()
-    if cliente is None or indice >= len(cliente.cotizaciones):
-        return None, None
-    return cliente, cliente.cotizaciones[indice]
+def buscar_cotizacion(id):
+    """Devuelve la cotización con su cliente adjunto en .cliente (o None)."""
+    cotizacion = Cotizacion.objects.filter(id=id).first()
+    if cotizacion is None:
+        return None
+    cotizacion.cliente = Cliente.objects.filter(id=cotizacion.id_cliente).first()
+    if cotizacion.cliente is None:
+        return None
+    return cotizacion
 
 
-def texto_cotizacion(cliente, cotizacion):
-    return (f'{cotizacion["vehiculo"]["marca"]} {cotizacion["vehiculo"]["modelo"]} '
-            f'({cotizacion["vehiculo"]["placa"]}) para {cliente.nombre} {cliente.apellido}')
+def texto_cotizacion(cotizacion):
+    vehiculo, cliente = cotizacion.vehiculo, cotizacion.cliente
+    return (f'{vehiculo["marca"]} {vehiculo["modelo"]} ({vehiculo["placa"]}) '
+            f'para {cliente.nombre} {cliente.apellido}')
 
 
 # =====================================================================
@@ -227,7 +231,7 @@ def eliminar_descuento(request, id, indice):
 
 
 # =====================================================================
-# Cotizaciones (embebidas en cada cliente)
+# Cotizaciones (colección cotizaciones)
 # =====================================================================
 
 @requiere_permiso('ventas')
@@ -238,15 +242,14 @@ def lista_cotizaciones(request):
 
     conteo = {'todas': len(cotizaciones)}
     for valor in ['pendiente', 'aprobada', 'rechazada']:
-        conteo[valor] = len([c for c in cotizaciones if c['estado'] == valor])
+        conteo[valor] = len([c for c in cotizaciones if c.estado == valor])
 
     if estado:
-        cotizaciones = [c for c in cotizaciones if c['estado'] == estado]
+        cotizaciones = [c for c in cotizaciones if c.estado == estado]
     if busqueda:
-        cotizaciones = [c for c in cotizaciones if busqueda.lower() in (
-            f'{c["cliente"].nombre} {c["cliente"].apellido} {c["cliente"].cedula} '
-            f'{c["vehiculo"]["marca"]} {c["vehiculo"]["modelo"]} {c["vehiculo"]["placa"]}').lower()]
-    cotizaciones.sort(key=lambda c: c['fecha'], reverse=True)
+        cotizaciones = [c for c in cotizaciones if c.cliente and busqueda.lower() in (
+            f'{c.cliente.nombre} {c.cliente.apellido} {c.cliente.cedula} '
+            f'{c.vehiculo["marca"]} {c.vehiculo["modelo"]} {c.vehiculo["placa"]}').lower()]
 
     return render(request, 'ventas_cotizaciones/lista_cotizaciones.html', {
         'cotizaciones': cotizaciones,
@@ -265,8 +268,8 @@ def crear_cotizacion(request):
             cliente = Cliente.objects.get(id=int(datos['cliente']))
             vehiculo = Vehiculo.objects.get(placa=datos['vehiculo'])
 
-            abierta = [c for c in cliente.cotizaciones if c['vehiculo']['placa'] == vehiculo.placa
-                       and c['estado'] != 'rechazada' and not c['venta']]
+            abierta = [c for c in Cotizacion.objects.filter(id_cliente=cliente.id)
+                       if c.vehiculo['placa'] == vehiculo.placa and c.estado != 'rechazada' and not c.venta]
             if abierta:
                 formulario.add_error('vehiculo', 'El cliente ya tiene una cotización abierta para este vehículo.')
             else:
@@ -284,26 +287,25 @@ def crear_cotizacion(request):
                 if precio is None:
                     precio = round((vehiculo.precio or 0) * (1 - porcentaje / 100))
 
-                cliente.cotizaciones.append({
-                    'vehiculo': {
+                cotizacion = Cotizacion.objects.create(
+                    id_cliente=cliente.id,
+                    vehiculo={
                         'marca': vehiculo.marca,
                         'modelo': vehiculo.modelo,
                         'anio': vehiculo.anio,
                         'placa': vehiculo.placa,
                         'precio': vehiculo.precio,
                     },
-                    'vendedor': vendedor_actual(request),
-                    'precio_ofertado': float(precio),
-                    'fecha': datos['fecha'],
-                    'estado': 'pendiente',
-                    'notas': notas,
-                    'venta': None,
-                })
-                cliente.save()
-                indice = len(cliente.cotizaciones) - 1
-                registrar_auditoria(request, 'crear', 'ventas',
-                                    f'Cotizó {texto_cotizacion(cliente, cliente.cotizaciones[indice])}')
-                return redirect('ventas:detalle_cotizacion', cliente_id=cliente.id, indice=indice)
+                    vendedor=vendedor_actual(request),
+                    precio_ofertado=float(precio),
+                    fecha=datos['fecha'],
+                    estado='pendiente',
+                    notas=notas,
+                    venta=None,
+                )
+                cotizacion.cliente = cliente
+                registrar_auditoria(request, 'crear', 'ventas', f'Cotizó {texto_cotizacion(cotizacion)}')
+                return redirect('ventas:detalle_cotizacion', id=cotizacion.id)
     else:
         formulario = FormularioCotizacion(initial={
             'fecha': datetime.date.today(),
@@ -318,98 +320,95 @@ def crear_cotizacion(request):
 
 
 @requiere_permiso('ventas')
-def detalle_cotizacion(request, cliente_id, indice):
-    cliente, cotizacion = buscar_cotizacion(cliente_id, indice)
-    if cliente is None:
+def detalle_cotizacion(request, id):
+    cotizacion = buscar_cotizacion(id)
+    if cotizacion is None:
         return redirect('ventas:lista_cotizaciones')
 
     factura = None
-    if cotizacion['venta'] and cotizacion['venta']['numero_factura']:
-        factura = Factura.objects.filter(numero_factura=cotizacion['venta']['numero_factura']).first()
+    if cotizacion.venta and cotizacion.venta['numero_factura']:
+        factura = Factura.objects.filter(numero_factura=cotizacion.venta['numero_factura']).first()
 
-    precio_lista = cotizacion['vehiculo']['precio'] or 0
+    precio_lista = cotizacion.vehiculo['precio'] or 0
     return render(request, 'ventas_cotizaciones/detalle_cotizacion.html', {
-        'cliente': cliente,
+        'cliente': cotizacion.cliente,
         'cotizacion': cotizacion,
-        'indice': indice,
         'factura': factura,
-        'ahorro': precio_lista - (cotizacion['precio_ofertado'] or 0),
+        'ahorro': precio_lista - (cotizacion.precio_ofertado or 0),
         'formas_pago': dict(FORMAS_PAGO),
     })
 
 
 @requiere_permiso('ventas')
-def editar_cotizacion(request, cliente_id, indice):
-    cliente, cotizacion = buscar_cotizacion(cliente_id, indice)
-    if cliente is None:
+def editar_cotizacion(request, id):
+    cotizacion = buscar_cotizacion(id)
+    if cotizacion is None:
         return redirect('ventas:lista_cotizaciones')
 
-    vendida = bool(cotizacion['venta'])
+    vendida = bool(cotizacion.venta)
     if request.method == 'POST':
         formulario = FormularioEditarCotizacion(request.POST, vendida=vendida, initial={
-            'precio_ofertado': cotizacion['precio_ofertado'],
-            'estado': cotizacion['estado'],
+            'precio_ofertado': cotizacion.precio_ofertado,
+            'estado': cotizacion.estado,
         })
         if formulario.is_valid():
             datos = formulario.cleaned_data
-            cotizacion['precio_ofertado'] = datos['precio_ofertado']
-            cotizacion['fecha'] = datos['fecha']
-            cotizacion['estado'] = datos['estado']
-            cotizacion['notas'] = datos['notas']
-            cliente.save()
-            actualizar_estado_vehiculo(cotizacion['vehiculo']['placa'])
-            registrar_auditoria(request, 'editar', 'ventas', f'Editó la cotización {texto_cotizacion(cliente, cotizacion)}')
-            return redirect('ventas:detalle_cotizacion', cliente_id=cliente.id, indice=indice)
+            cotizacion.precio_ofertado = datos['precio_ofertado']
+            cotizacion.fecha = datos['fecha']
+            cotizacion.estado = datos['estado']
+            cotizacion.notas = datos['notas']
+            cotizacion.save()
+            actualizar_estado_vehiculo(cotizacion.vehiculo['placa'])
+            registrar_auditoria(request, 'editar', 'ventas', f'Editó la cotización {texto_cotizacion(cotizacion)}')
+            return redirect('ventas:detalle_cotizacion', id=cotizacion.id)
     else:
         formulario = FormularioEditarCotizacion(vendida=vendida, initial={
-            'precio_ofertado': cotizacion['precio_ofertado'],
-            'fecha': cotizacion['fecha'],
-            'estado': cotizacion['estado'],
-            'notas': cotizacion['notas'],
+            'precio_ofertado': cotizacion.precio_ofertado,
+            'fecha': cotizacion.fecha,
+            'estado': cotizacion.estado,
+            'notas': cotizacion.notas,
         })
 
     return render(request, 'ventas_cotizaciones/formulario_cotizacion.html', {
         'formulario': formulario,
         'titulo': 'Editar cotización',
-        'cliente': cliente,
+        'cliente': cotizacion.cliente,
         'cotizacion': cotizacion,
-        'indice': indice,
     })
 
 
 @requiere_permiso('ventas')
-def cambiar_estado_cotizacion(request, cliente_id, indice, estado):
-    cliente, cotizacion = buscar_cotizacion(cliente_id, indice)
-    if cliente and request.method == 'POST' and not cotizacion['venta'] \
+def cambiar_estado_cotizacion(request, id, estado):
+    cotizacion = buscar_cotizacion(id)
+    if cotizacion and request.method == 'POST' and not cotizacion.venta \
             and estado in ('pendiente', 'aprobada', 'rechazada'):
-        cotizacion['estado'] = estado
-        cliente.save()
-        actualizar_estado_vehiculo(cotizacion['vehiculo']['placa'])
+        cotizacion.estado = estado
+        cotizacion.save()
+        actualizar_estado_vehiculo(cotizacion.vehiculo['placa'])
         registrar_auditoria(request, 'editar', 'ventas',
-                            f'Marcó como {estado} la cotización {texto_cotizacion(cliente, cotizacion)}')
-    return redirect('ventas:detalle_cotizacion', cliente_id=cliente_id, indice=indice)
+                            f'Marcó como {estado} la cotización {texto_cotizacion(cotizacion)}')
+    return redirect('ventas:detalle_cotizacion', id=id)
 
 
 @requiere_permiso('ventas')
-def eliminar_cotizacion(request, cliente_id, indice):
-    cliente, cotizacion = buscar_cotizacion(cliente_id, indice)
-    if cliente is None:
+def eliminar_cotizacion(request, id):
+    cotizacion = buscar_cotizacion(id)
+    if cotizacion is None:
         return redirect('ventas:lista_cotizaciones')
 
-    vendida = bool(cotizacion['venta'])
+    vendida = bool(cotizacion.venta)
     if request.method == 'POST' and not vendida:
-        cliente.cotizaciones.pop(indice)
-        cliente.save()
-        actualizar_estado_vehiculo(cotizacion['vehiculo']['placa'])
-        registrar_auditoria(request, 'eliminar', 'ventas', f'Eliminó la cotización {texto_cotizacion(cliente, cotizacion)}')
+        cotizacion.delete()
+        actualizar_estado_vehiculo(cotizacion.vehiculo['placa'])
+        registrar_auditoria(request, 'eliminar', 'ventas', f'Eliminó la cotización {texto_cotizacion(cotizacion)}')
         return redirect('ventas:lista_cotizaciones')
 
     return render(request, 'confirmar_eliminar.html', {
         'titulo': 'Eliminar cotización',
-        'objeto': texto_cotizacion(cliente, cotizacion),
+        'objeto': texto_cotizacion(cotizacion),
         'bloqueado': vendida,
         'motivo': 'La cotización ya tiene una venta. Primero elimina la venta.',
-        'url_volver': reverse('ventas:detalle_cotizacion', args=[cliente.id, indice]),
+        'url_volver': reverse('ventas:detalle_cotizacion', args=[id]),
     })
 
 
@@ -418,84 +417,82 @@ def eliminar_cotizacion(request, cliente_id, indice):
 # =====================================================================
 
 @requiere_permiso('ventas')
-def registrar_venta(request, cliente_id, indice):
-    cliente, cotizacion = buscar_cotizacion(cliente_id, indice)
-    if cliente is None:
+def registrar_venta(request, id):
+    cotizacion = buscar_cotizacion(id)
+    if cotizacion is None:
         return redirect('ventas:lista_cotizaciones')
-    if cotizacion['venta'] or cotizacion['estado'] != 'aprobada':
-        return redirect('ventas:detalle_cotizacion', cliente_id=cliente.id, indice=indice)
+    if cotizacion.venta or cotizacion.estado != 'aprobada':
+        return redirect('ventas:detalle_cotizacion', id=id)
 
-    placa = cotizacion['vehiculo']['placa']
+    placa = cotizacion.vehiculo['placa']
     if request.method == 'POST':
         formulario = FormularioVenta(request.POST)
         if formulario.is_valid():
             datos = formulario.cleaned_data
-            vendido = [c for c in todas_las_cotizaciones() if c['vehiculo']['placa'] == placa and c['venta']]
-            if vendido:
+            if any(c.venta for c in cotizaciones_de_placa(placa)):
                 formulario.add_error(None, 'Este vehículo ya fue vendido en otra cotización.')
             else:
-                cotizacion['venta'] = {
+                cotizacion.venta = {
                     'fecha_venta': datos['fecha_venta'],
                     'precio_final': datos['precio_final'],
                     'forma_pago': datos['forma_pago'],
                     'numero_factura': '',
                 }
-                cliente.save()
+                cotizacion.save()
                 actualizar_estado_vehiculo(placa)
-                actualizar_metas(cotizacion['vendedor']['nombre_usuario'])
-                registrar_auditoria(request, 'crear', 'ventas', f'Registró la venta de {texto_cotizacion(cliente, cotizacion)}')
-                return redirect('ventas:detalle_cotizacion', cliente_id=cliente.id, indice=indice)
+                actualizar_metas(cotizacion.vendedor['nombre_usuario'])
+                registrar_auditoria(request, 'crear', 'ventas', f'Registró la venta de {texto_cotizacion(cotizacion)}')
+                return redirect('ventas:detalle_cotizacion', id=id)
     else:
         formulario = FormularioVenta(initial={
             'fecha_venta': datetime.date.today(),
-            'precio_final': cotizacion['precio_ofertado'],
+            'precio_final': cotizacion.precio_ofertado,
         })
 
     return render(request, 'ventas_cotizaciones/formulario_venta.html', {
         'formulario': formulario,
-        'cliente': cliente,
+        'cliente': cotizacion.cliente,
         'cotizacion': cotizacion,
-        'indice': indice,
     })
 
 
 @requiere_permiso('ventas')
 def lista_ventas(request):
-    ventas = [c for c in todas_las_cotizaciones() if c['venta']]
+    ventas = [c for c in todas_las_cotizaciones() if c.venta]
     forma = request.GET.get('forma', '')
     if forma:
-        ventas = [v for v in ventas if v['venta']['forma_pago'] == forma]
-    ventas.sort(key=lambda v: v['venta']['fecha_venta'], reverse=True)
+        ventas = [v for v in ventas if v.venta['forma_pago'] == forma]
+    ventas.sort(key=lambda v: v.venta['fecha_venta'], reverse=True)
 
     return render(request, 'ventas_cotizaciones/lista_ventas.html', {
         'ventas': ventas,
         'forma': forma,
         'formas_pago': FORMAS_PAGO,
-        'total': sum(v['venta']['precio_final'] or 0 for v in ventas),
-        'sin_factura': len([v for v in ventas if not v['venta']['numero_factura']]),
+        'total': sum(v.venta['precio_final'] or 0 for v in ventas),
+        'sin_factura': len([v for v in ventas if not v.venta['numero_factura']]),
     })
 
 
 @requiere_permiso('ventas')
-def eliminar_venta(request, cliente_id, indice):
-    cliente, cotizacion = buscar_cotizacion(cliente_id, indice)
-    if cliente is None or not cotizacion['venta']:
+def eliminar_venta(request, id):
+    cotizacion = buscar_cotizacion(id)
+    if cotizacion is None or not cotizacion.venta:
         return redirect('ventas:lista_ventas')
 
-    facturada = bool(cotizacion['venta']['numero_factura'])
+    facturada = bool(cotizacion.venta['numero_factura'])
     if request.method == 'POST' and not facturada:
-        cotizacion['venta'] = None
-        cliente.save()
-        actualizar_estado_vehiculo(cotizacion['vehiculo']['placa'])
-        actualizar_metas(cotizacion['vendedor']['nombre_usuario'])
-        registrar_auditoria(request, 'eliminar', 'ventas', f'Eliminó la venta de {texto_cotizacion(cliente, cotizacion)}')
-        return redirect('ventas:detalle_cotizacion', cliente_id=cliente.id, indice=indice)
+        cotizacion.venta = None
+        cotizacion.save()
+        actualizar_estado_vehiculo(cotizacion.vehiculo['placa'])
+        actualizar_metas(cotizacion.vendedor['nombre_usuario'])
+        registrar_auditoria(request, 'eliminar', 'ventas', f'Eliminó la venta de {texto_cotizacion(cotizacion)}')
+        return redirect('ventas:detalle_cotizacion', id=id)
 
     return render(request, 'confirmar_eliminar.html', {
         'titulo': 'Eliminar venta',
-        'objeto': f'la venta de {texto_cotizacion(cliente, cotizacion)}',
+        'objeto': f'la venta de {texto_cotizacion(cotizacion)}',
         'bloqueado': facturada,
-        'motivo': f'La venta tiene la factura {cotizacion["venta"]["numero_factura"]}. Primero anula o elimina la factura.',
+        'motivo': f'La venta tiene la factura {cotizacion.venta["numero_factura"]}. Primero anula o elimina la factura.',
         'advertencia': 'La cotización vuelve a quedar aprobada y el vehículo reservado.',
-        'url_volver': reverse('ventas:detalle_cotizacion', args=[cliente.id, indice]),
+        'url_volver': reverse('ventas:detalle_cotizacion', args=[id]),
     })

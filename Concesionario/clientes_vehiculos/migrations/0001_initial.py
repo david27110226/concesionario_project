@@ -4,6 +4,7 @@ import clientes_vehiculos.models
 from django.db import migrations, models
 import djongo.models.fields
 import historial_vehiculo.models
+import ventas_cotizaciones.models
 
 
 class Migration(migrations.Migration):
@@ -25,7 +26,7 @@ class Migration(migrations.Migration):
                 ('telefono', models.CharField(max_length=20)),
                 ('direccion', models.TextField(blank=True)),
                 ('fecha_registro', models.DateField(auto_now_add=True)),
-                ('cotizaciones', djongo.models.fields.ArrayField(blank=True, model_container=clientes_vehiculos.models.Cotizacion)),
+                ('cotizaciones', djongo.models.fields.ArrayField(blank=True, model_container=ventas_cotizaciones.models.Venta)),  # campo antiguo: se elimina en 0002 (la clase original ya no existe),
             ],
             options={
                 'db_table': 'clientes',

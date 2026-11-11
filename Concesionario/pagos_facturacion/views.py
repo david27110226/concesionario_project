@@ -5,6 +5,7 @@ from django.shortcuts import redirect, render
 
 from clientes_vehiculos.models import Cliente
 from gestion_usuarios.sesion import registrar_auditoria, requiere_permiso
+from ventas_cotizaciones.models import Cotizacion
 from .forms import FormularioEditarFactura, FormularioFactura, FormularioPago
 from .models import DetallePago, Factura
 
@@ -35,15 +36,12 @@ def siguiente_numero():
 
 
 def asignar_numero_a_venta(factura, numero):
-    """Guarda (o borra) el número de factura dentro de la venta embebida del cliente."""
-    cliente = Cliente.objects.filter(cedula=factura.cedula_cliente).first()
-    if cliente is None:
-        return
-    for cotizacion in cliente.cotizaciones:
-        venta = cotizacion['venta']
+    """Guarda (o borra) el número de factura dentro de la venta de la cotización."""
+    for cotizacion in Cotizacion.objects.all():
+        venta = cotizacion.venta
         if venta and venta['numero_factura'] == factura.numero_factura:
             venta['numero_factura'] = numero
-            cliente.save()
+            cotizacion.save()
             return
 
 
@@ -78,25 +76,24 @@ def crear_factura(request):
         formulario = FormularioFactura(request.POST)
         if formulario.is_valid():
             datos = formulario.cleaned_data
-            id_cliente, indice = datos['venta'].split('-')
-            cliente = Cliente.objects.get(id=int(id_cliente))
-            cotizacion = cliente.cotizaciones[int(indice)]
-            subtotal = cotizacion['venta']['precio_final'] or 0
+            cotizacion = Cotizacion.objects.get(id=int(datos['venta']))
+            cliente = Cliente.objects.get(id=cotizacion.id_cliente)
+            subtotal = cotizacion.venta['precio_final'] or 0
             impuesto = round(subtotal * datos['iva_porcentaje'] / 100)
 
             factura = Factura.objects.create(
                 numero_factura=siguiente_numero(),
                 cedula_cliente=cliente.cedula,
                 nombre_cliente=f'{cliente.nombre} {cliente.apellido}',
-                placa_vehiculo=cotizacion['vehiculo']['placa'],
+                placa_vehiculo=cotizacion.vehiculo['placa'],
                 subtotal=subtotal,
                 impuesto_iva=impuesto,
                 total=subtotal + impuesto,
                 estado='emitida',
                 pagos=[],
             )
-            cotizacion['venta']['numero_factura'] = factura.numero_factura
-            cliente.save()
+            cotizacion.venta['numero_factura'] = factura.numero_factura
+            cotizacion.save()
             registrar_auditoria(request, 'crear', 'pagos', f'Generó la factura {factura.numero_factura}')
             return redirect('pagos:detalle_factura', id=factura.id)
     else:

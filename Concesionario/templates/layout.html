@@ -43,8 +43,11 @@
             {% if permisos.historial %}
             <div class="menu-grupo">
                 <div class="menu-titulo">Historial</div>
-                <a class="menu-enlace {% if ns == 'historial' %}activo{% endif %}" href="{% url 'historial:lista_historiales' %}">
+                <a class="menu-enlace {% if ns == 'historial' and ruta != 'lista_mantenimientos' %}activo{% endif %}" href="{% url 'historial:lista_historiales' %}">
                     {% include 'parciales/icono.html' with nombre='historial' %} Historial de vehículos
+                </a>
+                <a class="menu-enlace {% if ruta == 'lista_mantenimientos' %}activo{% endif %}" href="{% url 'historial:lista_mantenimientos' %}">
+                    {% include 'parciales/icono.html' with nombre='taller' %} Mantenimientos
                 </a>
             </div>
             {% endif %}

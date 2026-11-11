@@ -68,7 +68,7 @@
                 <thead><tr><th>Fecha</th><th>Cliente</th><th>Vehículo</th><th class="texto-derecha">Valor</th></tr></thead>
                 <tbody>
                 {% for venta in ultimas_ventas %}
-                    <tr {% if permisos.ventas %}class="fila-enlace" onclick="window.location='{% url 'ventas:detalle_cotizacion' venta.cliente.id venta.indice %}'"{% endif %}>
+                    <tr {% if permisos.ventas %}class="fila-enlace" onclick="window.location='{% url 'ventas:detalle_cotizacion' venta.id %}'"{% endif %}>
                         <td class="texto-suave">{{ venta.venta.fecha_venta|date:"d M Y" }}</td>
                         <td class="fuerte">{{ venta.cliente.nombre }} {{ venta.cliente.apellido }}</td>
                         <td>{{ venta.vehiculo.marca }} {{ venta.vehiculo.modelo }}</td>
@@ -94,7 +94,7 @@
                 </div>
                 <div class="leyenda">
                     <span style="--color: var(--exito)">Disponibles {{ disponibles }}</span>
-                    <span style="--color: #f59e0b">Reservados {{ reservados }}</span>
+                    <span style="--color: var(--alerta-medio)">Reservados {{ reservados }}</span>
                     <span style="--color: var(--info)">Vendidos {{ vendidos }}</span>
                 </div>
             </div>

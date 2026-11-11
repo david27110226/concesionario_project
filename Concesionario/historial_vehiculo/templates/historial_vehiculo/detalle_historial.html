@@ -11,6 +11,9 @@
     <a class="boton boton-secundario" href="{% url 'historial:agregar_propietario' vehiculo.id %}">
         {% include 'parciales/icono.html' with nombre='mas' %} Propietario anterior
     </a>
+    <a class="boton boton-secundario" href="{% url 'historial:agregar_siniestro' vehiculo.id %}">
+        {% include 'parciales/icono.html' with nombre='mas' %} Siniestro
+    </a>
 {% endblock %}
 
 {% block contenido %}
@@ -84,6 +87,32 @@
             </ul>
             {% else %}
                 {% include 'parciales/vacio.html' with icono='clientes' titulo='Sin dueños anteriores' mensaje='Si el vehículo es usado, registra aquí a sus dueños.' %}
+            {% endif %}
+        </div>
+
+        <div class="tarjeta">
+            <div class="tarjeta-titulo">
+                <h2>Siniestros</h2>
+                <a href="{% url 'historial:agregar_siniestro' vehiculo.id %}">+ Agregar</a>
+            </div>
+            {% if siniestros %}
+            <ul class="lista-simple">
+                {% for siniestro in siniestros %}
+                <li>
+                    <div>
+                        <span class="fuerte">{{ siniestro.nombre_tipo }}</span><br>
+                        <span class="texto-suave texto-pequeno">{{ siniestro.fecha|date:"d M Y" }} · {{ siniestro.descripcion|default:"Sin descripción" }}</span>
+                    </div>
+                    <div class="acciones">
+                        <span class="monto">{% if siniestro.costo_reparacion is not None %}${{ siniestro.costo_reparacion|floatformat:0 }}{% else %}—{% endif %}</span>
+                        <a class="boton-icono" href="{% url 'historial:editar_siniestro' vehiculo.id siniestro.indice %}" title="Modificar">{% include 'parciales/icono.html' with nombre='editar' %}</a>
+                        <a class="boton-icono" href="{% url 'historial:eliminar_siniestro' vehiculo.id siniestro.indice %}" title="Borrar">{% include 'parciales/icono.html' with nombre='eliminar' %}</a>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+                {% include 'parciales/vacio.html' with icono='alerta' titulo='Sin siniestros' mensaje='El vehículo no tiene choques, robos ni otros eventos registrados.' %}
             {% endif %}
         </div>
     </div>

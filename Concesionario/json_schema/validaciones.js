@@ -4,7 +4,9 @@
 //
 //     mongosh concesionario_app json_schema/validaciones.js
 //
-// Colecciones: usuarios, clientes, vehiculos, plantillasCotizacion, facturas.
+// Colecciones: usuarios, clientes, vehiculos, cotizaciones, plantillasCotizacion, facturas.
+// Regla del proyecto: ningún objeto tiene otro objeto adentro. Cada documento
+// solo tiene objetos o arreglos de objetos con campos simples (un nivel).
 // Mongo rechaza cualquier documento que no cumpla la estructura, aunque se
 // inserte por fuera de Django. Los nombres de los campos son los mismos de
 // los modelos, porque así es como Djongo los guarda.
@@ -41,8 +43,8 @@ function arreglo(elemento, descripcion) {
     return { bsonType: 'array', description: descripcion, items: elemento };
 }
 
-// Usuario que crea o atiende (DetalleVendedor / CreadoPor)
-const PERSONA_USUARIO = objeto({
+// Usuario que crea o atiende (clase ResumenUsuario, definida una sola vez)
+const RESUMEN_USUARIO = objeto({
     nombre_usuario: texto(150, 1),
     nombre: texto(100, 1),
     apellido: texto(100, 1),
@@ -115,32 +117,12 @@ const esquemas = {
         telefono: texto(20, 1),
         direccion: { bsonType: 'string' },
         fecha_registro: { bsonType: 'date' },
-        cotizaciones: arreglo(objeto({
-            vehiculo: objeto({
-                marca: texto(50, 1),
-                modelo: texto(50, 1),
-                anio: { bsonType: ENTERO, minimum: 1950, maximum: 2030 },
-                placa: { bsonType: 'string', pattern: PLACA },
-                precio: { bsonType: NUMERO.concat('null'), minimum: 0 },
-            }, null, 'Copia del vehículo cotizado (VehiculoCotizacion)'),
-            vendedor: PERSONA_USUARIO,
-            precio_ofertado: { bsonType: NUMERO.concat('null'), minimum: 0 },
+        seguimientos: arreglo(objeto({
             fecha: { bsonType: 'date' },
-            estado: { enum: ['pendiente', 'aprobada', 'rechazada'] },
-            notas: { bsonType: 'string' },
-            venta: {
-                bsonType: ['object', 'null'],
-                description: 'Venta de la cotización; la factura solo guarda su número',
-                required: ['fecha_venta', 'precio_final', 'forma_pago', 'numero_factura'],
-                additionalProperties: false,
-                properties: {
-                    fecha_venta: { bsonType: ['date', 'null'] },
-                    precio_final: { bsonType: NUMERO.concat('null'), minimum: 0 },
-                    forma_pago: texto(50),
-                    numero_factura: texto(20),
-                },
-            },
-        }), 'Cotizaciones del cliente'),
+            medio: { enum: ['llamada', 'visita', 'correo', 'whatsapp'] },
+            comentario: texto(5000, 1),
+            asesor: texto(150, 1),
+        }), 'Contactos del asesor con el cliente'),
     }, null, 'Cliente del concesionario'),
 
     vehiculos: objeto({
@@ -167,9 +149,44 @@ const esquemas = {
             fecha: { bsonType: 'date' },
             costo: { bsonType: NUMERO.concat('null'), minimum: 0 },
         }), 'Mantenimientos del vehículo'),
+        siniestros: arreglo(objeto({
+            tipo: { enum: ['choque', 'robo', 'inundacion', 'incendio', 'otro'] },
+            fecha: { bsonType: 'date' },
+            descripcion: { bsonType: 'string' },
+            costo_reparacion: { bsonType: NUMERO.concat('null'), minimum: 0 },
+        }), 'Choques, robos y otros eventos del vehículo'),
     }, null, 'Vehículo del inventario'),
 
     // ---------------- ventas_cotizaciones ----------------
+    cotizaciones: objeto({
+        ...BASE,
+        id_cliente: { bsonType: ENTERO, minimum: 1, description: 'id del cliente (colección clientes)' },
+        vehiculo: objeto({
+            marca: texto(50, 1),
+            modelo: texto(50, 1),
+            anio: { bsonType: ENTERO, minimum: 1950, maximum: 2030 },
+            placa: { bsonType: 'string', pattern: PLACA },
+            precio: { bsonType: NUMERO.concat('null'), minimum: 0 },
+        }, null, 'Copia del vehículo cotizado (VehiculoCotizacion)'),
+        vendedor: RESUMEN_USUARIO,
+        precio_ofertado: { bsonType: NUMERO.concat('null'), minimum: 0 },
+        fecha: { bsonType: 'date' },
+        estado: { enum: ['pendiente', 'aprobada', 'rechazada'] },
+        notas: { bsonType: 'string' },
+        venta: {
+            bsonType: ['object', 'null'],
+            description: 'Venta de la cotización; la factura solo guarda su número',
+            required: ['fecha_venta', 'precio_final', 'forma_pago', 'numero_factura'],
+            additionalProperties: false,
+            properties: {
+                fecha_venta: { bsonType: ['date', 'null'] },
+                precio_final: { bsonType: NUMERO.concat('null'), minimum: 0 },
+                forma_pago: texto(50),
+                numero_factura: texto(20),
+            },
+        },
+    }, null, 'Cotización de un vehículo para un cliente'),
+
     plantillasCotizacion: objeto({
         ...BASE,
         nombre: texto(100, 1),
@@ -177,7 +194,7 @@ const esquemas = {
         activa: { bsonType: 'bool' },
         fecha_creacion: { bsonType: 'date' },
         fecha_actualizacion: { bsonType: 'date' },
-        creado_por: PERSONA_USUARIO,
+        creado_por: RESUMEN_USUARIO,
         condiciones: arreglo(objeto({
             titulo: texto(150, 1),
             contenido: texto(5000, 1),

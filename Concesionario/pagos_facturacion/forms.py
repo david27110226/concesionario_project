@@ -1,23 +1,23 @@
 from django import forms
 
+from Concesionario.formularios import CampoFecha
 from clientes_vehiculos.models import Cliente
+from ventas_cotizaciones.models import Cotizacion
 from .models import DetallePago
 
 
-CAMPO_FECHA = forms.DateInput(attrs={'type': 'date'}, format='%Y-%m-%d')
-
-
 def opciones_ventas():
-    """Ventas que todavía no tienen factura. El valor es 'id_cliente-posición de la cotización'."""
+    """Ventas que todavía no tienen factura. El valor es el id de la cotización."""
+    clientes = {c.id: c for c in Cliente.objects.all()}
     opciones = [('', 'Selecciona una venta')]
-    for cliente in Cliente.objects.all().order_by('nombre'):
-        for indice, cotizacion in enumerate(cliente.cotizaciones):
-            venta = cotizacion['venta']
-            if venta and not venta['numero_factura']:
-                texto = (f'{cliente.nombre} {cliente.apellido} · {cotizacion["vehiculo"]["marca"]} '
-                         f'{cotizacion["vehiculo"]["modelo"]} ({cotizacion["vehiculo"]["placa"]}) · '
-                         f'${venta["precio_final"] or 0:,.0f}').replace(',', '.')
-                opciones.append((f'{cliente.id}-{indice}', texto))
+    for cotizacion in Cotizacion.objects.all().order_by('-id'):
+        venta, vehiculo = cotizacion.venta, cotizacion.vehiculo
+        cliente = clientes.get(cotizacion.id_cliente)
+        if cliente and venta and not venta['numero_factura']:
+            texto = (f'{cliente.nombre} {cliente.apellido} · {vehiculo["marca"]} '
+                     f'{vehiculo["modelo"]} ({vehiculo["placa"]}) · '
+                     f'${venta["precio_final"] or 0:,.0f}').replace(',', '.')
+            opciones.append((str(cotizacion.id), texto))
     return opciones
 
 
@@ -50,7 +50,7 @@ class FormularioPago(forms.Form):
     tipo_pago = forms.ChoiceField(label='Medio de pago', choices=DetallePago.TIPOS_PAGO)
     forma_pago = forms.ChoiceField(label='Forma', choices=DetallePago.FORMA_PAGO)
     monto = forms.FloatField(label='Monto (COP)', min_value=1)
-    fecha_pago = forms.DateField(label='Fecha del pago', widget=CAMPO_FECHA, input_formats=['%Y-%m-%d'])
+    fecha_pago = CampoFecha(label='Fecha del pago')
     numero_referencia = forms.CharField(label='Número de referencia', max_length=50, required=False)
     observaciones = forms.CharField(label='Observaciones', required=False,
                                     widget=forms.Textarea(attrs={'rows': 2}))

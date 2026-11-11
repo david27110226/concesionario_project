@@ -46,7 +46,7 @@
             </thead>
             <tbody>
             {% for venta in ventas %}
-                <tr class="fila-enlace" onclick="window.location='{% url 'ventas:detalle_cotizacion' venta.cliente.id venta.indice %}'">
+                <tr class="fila-enlace" onclick="window.location='{% url 'ventas:detalle_cotizacion' venta.id %}'">
                     <td class="texto-suave">{{ venta.venta.fecha_venta|date:"d M Y" }}</td>
                     <td><span class="fuerte">{{ venta.cliente.nombre }} {{ venta.cliente.apellido }}</span></td>
                     <td>{{ venta.vehiculo.marca }} {{ venta.vehiculo.modelo }}<br>

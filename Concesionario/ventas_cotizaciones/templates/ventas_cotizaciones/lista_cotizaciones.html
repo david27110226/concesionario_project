@@ -35,7 +35,7 @@
             </thead>
             <tbody>
             {% for cotizacion in cotizaciones %}
-                <tr class="fila-enlace" onclick="window.location='{% url 'ventas:detalle_cotizacion' cotizacion.cliente.id cotizacion.indice %}'">
+                <tr class="fila-enlace" onclick="window.location='{% url 'ventas:detalle_cotizacion' cotizacion.id %}'">
                     <td><span class="fuerte">{{ cotizacion.cliente.nombre }} {{ cotizacion.cliente.apellido }}</span><br>
                         <span class="texto-suave texto-pequeno">C.C. {{ cotizacion.cliente.cedula }}</span></td>
                     <td>{{ cotizacion.vehiculo.marca }} {{ cotizacion.vehiculo.modelo }}<br>

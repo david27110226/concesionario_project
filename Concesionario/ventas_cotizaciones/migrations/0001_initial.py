@@ -2,6 +2,7 @@
 
 from django.db import migrations, models
 import djongo.models.fields
+import gestion_usuarios.models
 import ventas_cotizaciones.models
 
 
@@ -22,7 +23,7 @@ class Migration(migrations.Migration):
                 ('activa', models.BooleanField(default=True)),
                 ('fecha_creacion', models.DateField(auto_now_add=True)),
                 ('fecha_actualizacion', models.DateField(auto_now=True)),
-                ('creado_por', djongo.models.fields.EmbeddedField(model_container=ventas_cotizaciones.models.CreadoPor)),
+                ('creado_por', djongo.models.fields.EmbeddedField(model_container=gestion_usuarios.models.ResumenUsuario)),
                 ('condiciones', djongo.models.fields.ArrayField(blank=True, model_container=ventas_cotizaciones.models.Condicion)),
                 ('descuentos', djongo.models.fields.ArrayField(blank=True, model_container=ventas_cotizaciones.models.Descuento)),
                 ('notas_adicionales', models.TextField(blank=True)),

@@ -1,5 +1,6 @@
 from djongo import models
 
+
 class PropietarioAnterior(models.Model):
     nombre = models.CharField(max_length=100)
     fecha_inicio = models.DateField()
@@ -7,6 +8,7 @@ class PropietarioAnterior(models.Model):
 
     class Meta:
         abstract = True
+
 
 class Mantenimiento(models.Model):
     TIPOS = [
@@ -20,6 +22,24 @@ class Mantenimiento(models.Model):
     descripcion = models.TextField(blank=True)
     fecha = models.DateField()
     costo = models.FloatField(null=True, blank=True)
+
+    class Meta:
+        abstract = True
+
+
+class Siniestro(models.Model):
+    """Accidente, robo u otro evento que afectó al vehículo."""
+    TIPOS = [
+        ('choque', 'Choque'),
+        ('robo', 'Robo'),
+        ('inundacion', 'Inundación'),
+        ('incendio', 'Incendio'),
+        ('otro', 'Otro'),
+    ]
+    tipo = models.CharField(max_length=20, choices=TIPOS)
+    fecha = models.DateField()
+    descripcion = models.TextField(blank=True)
+    costo_reparacion = models.FloatField(null=True, blank=True)
 
     class Meta:
         abstract = True

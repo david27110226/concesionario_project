@@ -1,15 +1,13 @@
 from django import forms
 
-from .models import Mantenimiento
-
-
-CAMPO_FECHA = forms.DateInput(attrs={'type': 'date'}, format='%Y-%m-%d')
+from Concesionario.formularios import CampoFecha
+from .models import Mantenimiento, Siniestro
 
 
 class FormularioPropietario(forms.Form):
     nombre = forms.CharField(label='Nombre del propietario', max_length=100)
-    fecha_inicio = forms.DateField(label='Desde', widget=CAMPO_FECHA, input_formats=['%Y-%m-%d'])
-    fecha_fin = forms.DateField(label='Hasta', widget=CAMPO_FECHA, input_formats=['%Y-%m-%d'])
+    fecha_inicio = CampoFecha(label='Desde')
+    fecha_fin = CampoFecha(label='Hasta')
 
     def clean(self):
         datos = super().clean()
@@ -21,7 +19,15 @@ class FormularioPropietario(forms.Form):
 
 class FormularioMantenimiento(forms.Form):
     tipo = forms.ChoiceField(label='Tipo de mantenimiento', choices=Mantenimiento.TIPOS)
-    fecha = forms.DateField(label='Fecha', widget=CAMPO_FECHA, input_formats=['%Y-%m-%d'])
+    fecha = CampoFecha(label='Fecha')
     costo = forms.FloatField(label='Costo (COP)', min_value=0, required=False)
+    descripcion = forms.CharField(label='Descripción', required=False,
+                                  widget=forms.Textarea(attrs={'rows': 3}))
+
+
+class FormularioSiniestro(forms.Form):
+    tipo = forms.ChoiceField(label='Tipo de siniestro', choices=Siniestro.TIPOS)
+    fecha = CampoFecha(label='Fecha')
+    costo_reparacion = forms.FloatField(label='Costo de reparación (COP)', min_value=0, required=False)
     descripcion = forms.CharField(label='Descripción', required=False,
                                   widget=forms.Textarea(attrs={'rows': 3}))

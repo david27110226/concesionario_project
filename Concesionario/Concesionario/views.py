@@ -11,8 +11,8 @@ from pagos_facturacion.models import Factura
 def inicio(request):
     """Tablero general: reúne la información de todas las aplicaciones."""
     cotizaciones = todas_las_cotizaciones()
-    ventas = [c for c in cotizaciones if c['venta']]
-    ventas.sort(key=lambda c: c['venta']['fecha_venta'], reverse=True)
+    ventas = [c for c in cotizaciones if c.venta]
+    ventas.sort(key=lambda c: c.venta['fecha_venta'], reverse=True)
     facturas = Factura.objects.exclude(estado='anulada')
     recaudado = sum(sum(p['monto'] for p in f.pagos) for f in facturas)
 
@@ -23,9 +23,9 @@ def inicio(request):
         'disponibles': Vehiculo.objects.filter(estado='disponible').count(),
         'reservados': Vehiculo.objects.filter(estado='reservado').count(),
         'vendidos': Vehiculo.objects.filter(estado='vendido').count(),
-        'cotizaciones_pendientes': len([c for c in cotizaciones if c['estado'] == 'pendiente']),
+        'cotizaciones_pendientes': len([c for c in cotizaciones if c.estado == 'pendiente']),
         'cantidad_ventas': len(ventas),
-        'total_vendido': sum(c['venta']['precio_final'] or 0 for c in ventas),
+        'total_vendido': sum(c.venta['precio_final'] or 0 for c in ventas),
         'total_recaudado': recaudado,
         'por_cobrar': sum(f.total for f in facturas) - recaudado,
         'ultimas_ventas': ventas[:5],

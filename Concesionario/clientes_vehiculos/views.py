@@ -1,10 +1,13 @@
+import datetime
+
 from django.db.models import Q
 from django.shortcuts import redirect, render
 
 from gestion_usuarios.sesion import registrar_auditoria, requiere_permiso
 from pagos_facturacion.models import Factura
-from .forms import FormularioCliente, FormularioVehiculo
-from .models import Cliente, Vehiculo
+from ventas_cotizaciones.models import Cotizacion
+from .forms import FormularioCliente, FormularioSeguimiento, FormularioVehiculo
+from .models import Cliente, Seguimiento, Vehiculo
 
 
 def buscar_cliente(id):
@@ -21,27 +24,36 @@ def buscar_vehiculo(id):
         return None
 
 
-def todas_las_cotizaciones():
-    """Recorre las cotizaciones embebidas en todos los clientes.
-    Cada elemento trae el cliente y la posición de la cotización en su arreglo."""
+def todas_las_cotizaciones(**filtro):
+    """Cotizaciones de la colección cotizaciones, las más recientes primero.
+    A cada una se le adjunta su cliente en el atributo .cliente para mostrarla."""
+    clientes = {c.id: c for c in Cliente.objects.all()}
     lista = []
-    for cliente in Cliente.objects.all():
-        for indice, cotizacion in enumerate(cliente.cotizaciones):
-            lista.append(dict(cotizacion, cliente=cliente, indice=indice))
+    for cotizacion in Cotizacion.objects.filter(**filtro).order_by('-fecha', '-id'):
+        cotizacion.cliente = clientes.get(cotizacion.id_cliente)
+        lista.append(cotizacion)
     return lista
+
+
+def cotizaciones_de_placa(placa):
+    return [c for c in todas_las_cotizaciones() if c.vehiculo['placa'] == placa]
 
 
 def actualizar_estado_vehiculo(placa):
     """El estado del vehículo depende de sus cotizaciones:
     vendido si tiene una venta, reservado si tiene una cotización aprobada."""
-    cotizaciones = [c for c in todas_las_cotizaciones() if c['vehiculo']['placa'] == placa]
-    if any(c['venta'] for c in cotizaciones):
+    cotizaciones = cotizaciones_de_placa(placa)
+    if any(c.venta for c in cotizaciones):
         estado = 'vendido'
-    elif any(c['estado'] == 'aprobada' for c in cotizaciones):
+    elif any(c.estado == 'aprobada' for c in cotizaciones):
         estado = 'reservado'
     else:
         estado = 'disponible'
     Vehiculo.objects.filter(placa=placa).update(estado=estado)
+
+
+def nombre_medio(medio):
+    return dict(Seguimiento.MEDIOS)[medio]
 
 
 # ---------------- Clientes ----------------
@@ -55,6 +67,12 @@ def lista_clientes(request):
             Q(nombre__icontains=busqueda) | Q(apellido__icontains=busqueda) |
             Q(cedula__icontains=busqueda) | Q(email__icontains=busqueda)
         )
+    conteo = {}
+    for cotizacion in Cotizacion.objects.all():
+        conteo[cotizacion.id_cliente] = conteo.get(cotizacion.id_cliente, 0) + 1
+    clientes = list(clientes)
+    for cliente in clientes:
+        cliente.num_cotizaciones = conteo.get(cliente.id, 0)
     return render(request, 'clientes_vehiculos/lista_clientes.html', {
         'clientes': clientes,
         'busqueda': busqueda,
@@ -75,7 +93,7 @@ def crear_cliente(request):
                 email=datos['email'],
                 telefono=datos['telefono'],
                 direccion=datos['direccion'],
-                cotizaciones=[],
+                seguimientos=[],
             )
             registrar_auditoria(request, 'crear', 'clientes', f'Registró al cliente {cliente.cedula}')
             return redirect('clientes:detalle_cliente', id=cliente.id)
@@ -94,13 +112,17 @@ def detalle_cliente(request, id):
     if cliente is None:
         return redirect('clientes:lista_clientes')
 
-    cotizaciones = [dict(c, indice=i) for i, c in enumerate(cliente.cotizaciones)]
-    compras = [c for c in cotizaciones if c['venta']]
+    cotizaciones = todas_las_cotizaciones(id_cliente=cliente.id)
+    compras = [c for c in cotizaciones if c.venta]
+    seguimientos = [dict(s, indice=i, nombre_medio=nombre_medio(s['medio']))
+                    for i, s in enumerate(cliente.seguimientos)]
+    seguimientos.sort(key=lambda s: s['fecha'], reverse=True)
     return render(request, 'clientes_vehiculos/detalle_cliente.html', {
         'cliente': cliente,
         'cotizaciones': cotizaciones,
         'compras': compras,
-        'total_compras': sum(c['venta']['precio_final'] or 0 for c in compras),
+        'seguimientos': seguimientos,
+        'total_compras': sum(c.venta['precio_final'] or 0 for c in compras),
         'facturas': Factura.objects.filter(cedula_cliente=cliente.cedula).order_by('-id'),
     })
 
@@ -146,22 +168,105 @@ def eliminar_cliente(request, id):
     if cliente is None:
         return redirect('clientes:lista_clientes')
 
-    con_ventas = any(c['venta'] for c in cliente.cotizaciones)
+    cotizaciones = list(Cotizacion.objects.filter(id_cliente=cliente.id))
+    con_ventas = any(c.venta for c in cotizaciones)
     if request.method == 'POST' and not con_ventas:
-        placas = [c['vehiculo']['placa'] for c in cliente.cotizaciones]
+        placas = {c.vehiculo['placa'] for c in cotizaciones}
+        for cotizacion in cotizaciones:
+            cotizacion.delete()
         cliente.delete()
         for placa in placas:
             actualizar_estado_vehiculo(placa)
         registrar_auditoria(request, 'eliminar', 'clientes', f'Eliminó al cliente {cliente.cedula}')
         return redirect('clientes:lista_clientes')
 
-    cantidad = len(cliente.cotizaciones)
+    cantidad = len(cotizaciones)
     return render(request, 'confirmar_eliminar.html', {
         'titulo': 'Eliminar cliente',
         'objeto': f'{cliente.nombre} {cliente.apellido} (C.C. {cliente.cedula})',
         'bloqueado': con_ventas,
         'motivo': 'El cliente tiene ventas registradas. Primero elimina esas ventas.',
         'advertencia': f'También se eliminarán sus {cantidad} cotizaciones.' if cantidad else '',
+        'url_cancelar': 'clientes:detalle_cliente',
+        'id_cancelar': cliente.id,
+    })
+
+
+# ---------------- Seguimientos (embebidos en el cliente) ----------------
+
+@requiere_permiso('clientes')
+def agregar_seguimiento(request, id):
+    cliente = buscar_cliente(id)
+    if cliente is None:
+        return redirect('clientes:lista_clientes')
+
+    if request.method == 'POST':
+        formulario = FormularioSeguimiento(request.POST)
+        if formulario.is_valid():
+            datos = formulario.cleaned_data
+            cliente.seguimientos.append({
+                'fecha': datos['fecha'],
+                'medio': datos['medio'],
+                'comentario': datos['comentario'],
+                'asesor': request.session['usuario']['nombre_usuario'],
+            })
+            cliente.save()
+            registrar_auditoria(request, 'crear', 'clientes', f'Registró un seguimiento a {cliente.cedula}')
+            return redirect('clientes:detalle_cliente', id=cliente.id)
+    else:
+        formulario = FormularioSeguimiento(initial={'fecha': datetime.date.today()})
+
+    return render(request, 'clientes_vehiculos/formulario_seguimiento.html', {
+        'formulario': formulario,
+        'cliente': cliente,
+        'titulo': 'Registrar seguimiento',
+    })
+
+
+@requiere_permiso('clientes')
+def editar_seguimiento(request, id, indice):
+    cliente = buscar_cliente(id)
+    if cliente is None or indice >= len(cliente.seguimientos):
+        return redirect('clientes:lista_clientes')
+
+    seguimiento = cliente.seguimientos[indice]
+    if request.method == 'POST':
+        formulario = FormularioSeguimiento(request.POST)
+        if formulario.is_valid():
+            datos = formulario.cleaned_data
+            seguimiento['fecha'] = datos['fecha']
+            seguimiento['medio'] = datos['medio']
+            seguimiento['comentario'] = datos['comentario']
+            cliente.save()
+            registrar_auditoria(request, 'editar', 'clientes', f'Editó un seguimiento de {cliente.cedula}')
+            return redirect('clientes:detalle_cliente', id=cliente.id)
+    else:
+        formulario = FormularioSeguimiento(initial=seguimiento)
+
+    return render(request, 'clientes_vehiculos/formulario_seguimiento.html', {
+        'formulario': formulario,
+        'cliente': cliente,
+        'titulo': 'Editar seguimiento',
+    })
+
+
+@requiere_permiso('clientes')
+def eliminar_seguimiento(request, id, indice):
+    cliente = buscar_cliente(id)
+    if cliente is None or indice >= len(cliente.seguimientos):
+        return redirect('clientes:lista_clientes')
+
+    seguimiento = cliente.seguimientos[indice]
+    if request.method == 'POST':
+        cliente.seguimientos.pop(indice)
+        cliente.save()
+        registrar_auditoria(request, 'eliminar', 'clientes', f'Borró un seguimiento de {cliente.cedula}')
+        return redirect('clientes:detalle_cliente', id=cliente.id)
+
+    return render(request, 'confirmar_eliminar.html', {
+        'titulo': 'Borrar seguimiento',
+        'objeto': (f'{nombre_medio(seguimiento["medio"])} del {seguimiento["fecha"]:%d/%m/%Y} '
+                   f'con {cliente.nombre} {cliente.apellido}'),
         'url_cancelar': 'clientes:detalle_cliente',
         'id_cancelar': cliente.id,
     })
@@ -208,6 +313,7 @@ def crear_vehiculo(request):
                 descripcion=datos['descripcion'],
                 propietarios_anteriores=[],
                 mantenimientos=[],
+                siniestros=[],
             )
             registrar_auditoria(request, 'crear', 'vehiculos', f'Registró el vehículo {vehiculo.placa}')
             return redirect('clientes:detalle_vehiculo', id=vehiculo.id)
@@ -226,10 +332,9 @@ def detalle_vehiculo(request, id):
     if vehiculo is None:
         return redirect('clientes:catalogo_vehiculos')
 
-    cotizaciones = [c for c in todas_las_cotizaciones() if c['vehiculo']['placa'] == vehiculo.placa]
     return render(request, 'clientes_vehiculos/detalle_vehiculo.html', {
         'vehiculo': vehiculo,
-        'cotizaciones': cotizaciones,
+        'cotizaciones': cotizaciones_de_placa(vehiculo.placa),
         'costo_mantenimientos': sum(m['costo'] or 0 for m in vehiculo.mantenimientos),
     })
 
@@ -281,7 +386,7 @@ def eliminar_vehiculo(request, id):
     if vehiculo is None:
         return redirect('clientes:catalogo_vehiculos')
 
-    cotizado = any(c['vehiculo']['placa'] == vehiculo.placa for c in todas_las_cotizaciones())
+    cotizado = bool(cotizaciones_de_placa(vehiculo.placa))
     if request.method == 'POST' and not cotizado:
         vehiculo.delete()
         registrar_auditoria(request, 'eliminar', 'vehiculos', f'Eliminó el vehículo {vehiculo.placa}')
@@ -292,7 +397,7 @@ def eliminar_vehiculo(request, id):
         'objeto': f'{vehiculo.marca} {vehiculo.modelo} ({vehiculo.placa})',
         'bloqueado': cotizado,
         'motivo': 'El vehículo aparece en cotizaciones de clientes. Primero elimina esas cotizaciones.',
-        'advertencia': 'También se borrará su historial de propietarios y mantenimientos.',
+        'advertencia': 'También se borrará su historial de propietarios, mantenimientos y siniestros.',
         'url_cancelar': 'clientes:detalle_vehiculo',
         'id_cancelar': vehiculo.id,
     })

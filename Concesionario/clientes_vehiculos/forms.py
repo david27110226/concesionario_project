@@ -1,6 +1,7 @@
 from django import forms
 
-from .models import Cliente, Vehiculo
+from Concesionario.formularios import CampoFecha
+from .models import Cliente, Seguimiento, Vehiculo
 
 
 class FormularioCliente(forms.Form):
@@ -26,6 +27,12 @@ class FormularioCliente(forms.Form):
         if not self.editando and Cliente.objects.filter(cedula=cedula).exists():
             raise forms.ValidationError('Ya existe un cliente con esa cédula.')
         return cedula
+
+
+class FormularioSeguimiento(forms.Form):
+    fecha = CampoFecha(label='Fecha')
+    medio = forms.ChoiceField(label='Medio de contacto', choices=Seguimiento.MEDIOS)
+    comentario = forms.CharField(label='Comentario', widget=forms.Textarea(attrs={'rows': 3}))
 
 
 class FormularioVehiculo(forms.Form):

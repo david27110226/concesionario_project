@@ -4,7 +4,7 @@ from django.contrib.auth.hashers import check_password, make_password
 from django.db.models import Q
 from django.shortcuts import redirect, render
 
-from clientes_vehiculos.models import Cliente
+from ventas_cotizaciones.models import Cotizacion
 from .forms import (MESES, ROLES, FormularioLogin, FormularioMeta, FormularioNotificacion,
                     FormularioUsuario, clave_rol)
 from .models import Usuario
@@ -23,12 +23,8 @@ def actualizar_metas(nombre_usuario):
     usuario = Usuario.objects.filter(nombre_usuario=nombre_usuario).first()
     if usuario is None or not usuario.metas:
         return
-    fechas = []
-    for cliente in Cliente.objects.all():
-        for cotizacion in cliente.cotizaciones:
-            venta = cotizacion['venta']
-            if venta and cotizacion['vendedor']['nombre_usuario'] == nombre_usuario:
-                fechas.append(venta['fecha_venta'])
+    fechas = [c.venta['fecha_venta'] for c in Cotizacion.objects.all()
+              if c.venta and c.venta['fecha_venta'] and c.vendedor['nombre_usuario'] == nombre_usuario]
     for meta in usuario.metas:
         meta['ventas_realizadas'] = len([f for f in fechas if f.month == meta['mes'] and f.year == meta['anio']])
     usuario.save()

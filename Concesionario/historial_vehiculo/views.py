@@ -2,20 +2,18 @@ from django.db.models import Q
 from django.shortcuts import redirect, render
 
 from clientes_vehiculos.models import Vehiculo
+from clientes_vehiculos.views import buscar_vehiculo
 from gestion_usuarios.sesion import registrar_auditoria, requiere_permiso
-from .forms import FormularioMantenimiento, FormularioPropietario
-from .models import Mantenimiento
-
-
-def buscar_vehiculo(id):
-    try:
-        return Vehiculo.objects.get(id=id)
-    except Vehiculo.DoesNotExist:
-        return None
+from .forms import FormularioMantenimiento, FormularioPropietario, FormularioSiniestro
+from .models import Mantenimiento, Siniestro
 
 
 def nombre_tipo(tipo):
     return dict(Mantenimiento.TIPOS)[tipo]
+
+
+def nombre_siniestro(tipo):
+    return dict(Siniestro.TIPOS)[tipo]
 
 
 @requiere_permiso('historial')
@@ -34,6 +32,7 @@ def lista_historiales(request):
             'vehiculo': vehiculo,
             'duenos': len(vehiculo.propietarios_anteriores),
             'mantenimientos': len(vehiculo.mantenimientos),
+            'siniestros': len(vehiculo.siniestros),
             'costo': sum(m['costo'] or 0 for m in vehiculo.mantenimientos),
             'ultimo': max(fechas) if fechas else None,
         })
@@ -56,12 +55,36 @@ def detalle_historial(request, id):
     mantenimientos.sort(key=lambda m: m['fecha'], reverse=True)
     propietarios = [dict(p, indice=i) for i, p in enumerate(vehiculo.propietarios_anteriores)]
     propietarios.sort(key=lambda p: p['fecha_inicio'])
+    siniestros = [dict(s, indice=i, nombre_tipo=nombre_siniestro(s['tipo']))
+                  for i, s in enumerate(vehiculo.siniestros)]
+    siniestros.sort(key=lambda s: s['fecha'], reverse=True)
 
     return render(request, 'historial_vehiculo/detalle_historial.html', {
         'vehiculo': vehiculo,
         'mantenimientos': mantenimientos,
         'propietarios': propietarios,
+        'siniestros': siniestros,
         'costo_total': sum(m['costo'] or 0 for m in mantenimientos),
+    })
+
+
+@requiere_permiso('historial')
+def lista_mantenimientos(request):
+    """Todos los mantenimientos de todos los vehículos, con filtro por tipo."""
+    tipo = request.GET.get('tipo', '')
+    filas = []
+    for vehiculo in Vehiculo.objects.all():
+        for indice, mantenimiento in enumerate(vehiculo.mantenimientos):
+            if not tipo or mantenimiento['tipo'] == tipo:
+                filas.append(dict(mantenimiento, indice=indice, vehiculo=vehiculo,
+                                  nombre_tipo=nombre_tipo(mantenimiento['tipo'])))
+    filas.sort(key=lambda m: m['fecha'], reverse=True)
+
+    return render(request, 'historial_vehiculo/lista_mantenimientos.html', {
+        'filas': filas,
+        'tipo': tipo,
+        'tipos': Mantenimiento.TIPOS,
+        'total': sum(m['costo'] or 0 for m in filas),
     })
 
 
@@ -100,7 +123,7 @@ def agregar_propietario(request, id):
     else:
         formulario = FormularioPropietario()
 
-    return render(request, 'historial_vehiculo/formulario_registro.html', {
+    return render(request, 'historial_vehiculo/formulario_propietario.html', {
         'formulario': formulario,
         'vehiculo': vehiculo,
         'titulo': 'Registrar propietario anterior',
@@ -131,7 +154,7 @@ def editar_propietario(request, id, indice):
     else:
         formulario = FormularioPropietario(initial=dueno)
 
-    return render(request, 'historial_vehiculo/formulario_registro.html', {
+    return render(request, 'historial_vehiculo/formulario_propietario.html', {
         'formulario': formulario,
         'vehiculo': vehiculo,
         'titulo': 'Modificar propietario anterior',
@@ -190,7 +213,7 @@ def agregar_mantenimiento(request, id):
     else:
         formulario = FormularioMantenimiento()
 
-    return render(request, 'historial_vehiculo/formulario_registro.html', {
+    return render(request, 'historial_vehiculo/formulario_mantenimiento.html', {
         'formulario': formulario,
         'vehiculo': vehiculo,
         'titulo': 'Agregar mantenimiento',
@@ -218,7 +241,7 @@ def editar_mantenimiento(request, id, indice):
     else:
         formulario = FormularioMantenimiento(initial=mantenimiento)
 
-    return render(request, 'historial_vehiculo/formulario_registro.html', {
+    return render(request, 'historial_vehiculo/formulario_mantenimiento.html', {
         'formulario': formulario,
         'vehiculo': vehiculo,
         'titulo': 'Modificar mantenimiento',
@@ -241,6 +264,91 @@ def eliminar_mantenimiento(request, id, indice):
     return render(request, 'confirmar_eliminar.html', {
         'titulo': 'Borrar mantenimiento',
         'objeto': f'{nombre_tipo(mantenimiento["tipo"])} del {mantenimiento["fecha"]:%d/%m/%Y} ({vehiculo.placa})',
+        'url_cancelar': 'historial:detalle_historial',
+        'id_cancelar': vehiculo.id,
+    })
+
+
+# ---------------- Siniestros ----------------
+
+def datos_siniestro(datos):
+    return {
+        'tipo': datos['tipo'],
+        'fecha': datos['fecha'],
+        'descripcion': datos['descripcion'],
+        'costo_reparacion': datos['costo_reparacion'],
+    }
+
+
+@requiere_permiso('historial')
+def agregar_siniestro(request, id):
+    vehiculo = buscar_vehiculo(id)
+    if vehiculo is None:
+        return redirect('historial:lista_historiales')
+
+    if request.method == 'POST':
+        formulario = FormularioSiniestro(request.POST)
+        if formulario.is_valid():
+            datos = formulario.cleaned_data
+            repetido = [s for s in vehiculo.siniestros
+                        if s['tipo'] == datos['tipo'] and s['fecha'] == datos['fecha']]
+            if repetido:
+                formulario.add_error('tipo', 'Ya hay un siniestro de ese tipo en esa fecha.')
+            else:
+                vehiculo.siniestros.append(datos_siniestro(datos))
+                vehiculo.save()
+                registrar_auditoria(request, 'crear', 'historial',
+                                    f'Registró un siniestro ({nombre_siniestro(datos["tipo"]).lower()}) de {vehiculo.placa}')
+                return redirect('historial:detalle_historial', id=vehiculo.id)
+    else:
+        formulario = FormularioSiniestro()
+
+    return render(request, 'historial_vehiculo/formulario_siniestro.html', {
+        'formulario': formulario,
+        'vehiculo': vehiculo,
+        'titulo': 'Registrar siniestro',
+    })
+
+
+@requiere_permiso('historial')
+def editar_siniestro(request, id, indice):
+    vehiculo = buscar_vehiculo(id)
+    if vehiculo is None or indice >= len(vehiculo.siniestros):
+        return redirect('historial:lista_historiales')
+
+    if request.method == 'POST':
+        formulario = FormularioSiniestro(request.POST)
+        if formulario.is_valid():
+            vehiculo.siniestros[indice] = datos_siniestro(formulario.cleaned_data)
+            vehiculo.save()
+            registrar_auditoria(request, 'editar', 'historial', f'Modificó un siniestro de {vehiculo.placa}')
+            return redirect('historial:detalle_historial', id=vehiculo.id)
+    else:
+        formulario = FormularioSiniestro(initial=vehiculo.siniestros[indice])
+
+    return render(request, 'historial_vehiculo/formulario_siniestro.html', {
+        'formulario': formulario,
+        'vehiculo': vehiculo,
+        'titulo': 'Modificar siniestro',
+    })
+
+
+@requiere_permiso('historial')
+def eliminar_siniestro(request, id, indice):
+    vehiculo = buscar_vehiculo(id)
+    if vehiculo is None or indice >= len(vehiculo.siniestros):
+        return redirect('historial:lista_historiales')
+
+    siniestro = vehiculo.siniestros[indice]
+    if request.method == 'POST':
+        vehiculo.siniestros.pop(indice)
+        vehiculo.save()
+        registrar_auditoria(request, 'eliminar', 'historial', f'Borró un siniestro de {vehiculo.placa}')
+        return redirect('historial:detalle_historial', id=vehiculo.id)
+
+    return render(request, 'confirmar_eliminar.html', {
+        'titulo': 'Borrar siniestro',
+        'objeto': f'{nombre_siniestro(siniestro["tipo"])} del {siniestro["fecha"]:%d/%m/%Y} ({vehiculo.placa})',
         'url_cancelar': 'historial:detalle_historial',
         'id_cancelar': vehiculo.id,
     })

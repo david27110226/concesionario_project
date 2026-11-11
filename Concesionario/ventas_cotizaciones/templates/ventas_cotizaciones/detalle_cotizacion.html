@@ -7,25 +7,25 @@
 {% block acciones %}
     {% if not cotizacion.venta %}
         {% if cotizacion.estado == 'pendiente' %}
-        <form method="post" action="{% url 'ventas:cambiar_estado_cotizacion' cliente.id indice 'aprobada' %}">
+        <form method="post" action="{% url 'ventas:cambiar_estado_cotizacion' cotizacion.id 'aprobada' %}">
             {% csrf_token %}
             <button class="boton boton-exito" type="submit">{% include 'parciales/icono.html' with nombre='check' %} Aprobar</button>
         </form>
-        <form method="post" action="{% url 'ventas:cambiar_estado_cotizacion' cliente.id indice 'rechazada' %}">
+        <form method="post" action="{% url 'ventas:cambiar_estado_cotizacion' cotizacion.id 'rechazada' %}">
             {% csrf_token %}
             <button class="boton boton-secundario" type="submit">{% include 'parciales/icono.html' with nombre='x' %} Rechazar</button>
         </form>
         {% elif cotizacion.estado == 'aprobada' %}
-        <a class="boton boton-primario" href="{% url 'ventas:registrar_venta' cliente.id indice %}">
+        <a class="boton boton-primario" href="{% url 'ventas:registrar_venta' cotizacion.id %}">
             {% include 'parciales/icono.html' with nombre='venta' %} Registrar venta
         </a>
         {% endif %}
     {% endif %}
-    <a class="boton boton-secundario" href="{% url 'ventas:editar_cotizacion' cliente.id indice %}">
+    <a class="boton boton-secundario" href="{% url 'ventas:editar_cotizacion' cotizacion.id %}">
         {% include 'parciales/icono.html' with nombre='editar' %} Editar
     </a>
     {% if not cotizacion.venta %}
-    <a class="boton boton-suave-peligro" href="{% url 'ventas:eliminar_cotizacion' cliente.id indice %}">
+    <a class="boton boton-suave-peligro" href="{% url 'ventas:eliminar_cotizacion' cotizacion.id %}">
         {% include 'parciales/icono.html' with nombre='eliminar' %} Eliminar
     </a>
     {% endif %}
@@ -55,7 +55,7 @@
             <div class="tarjeta-titulo">
                 <h2>Venta</h2>
                 {% if cotizacion.venta and not cotizacion.venta.numero_factura %}
-                    <a href="{% url 'ventas:eliminar_venta' cliente.id indice %}">Eliminar venta</a>
+                    <a href="{% url 'ventas:eliminar_venta' cotizacion.id %}">Eliminar venta</a>
                 {% endif %}
             </div>
             {% if cotizacion.venta %}
@@ -74,7 +74,7 @@
                 </div>
                 {% if not factura and request.session.usuario.permisos.pagos %}
                 <div class="acciones separado">
-                    <a class="boton boton-primario boton-pequeno" href="{% url 'pagos:crear_factura' %}?venta={{ cliente.id }}-{{ indice }}">
+                    <a class="boton boton-primario boton-pequeno" href="{% url 'pagos:crear_factura' %}?venta={{ cotizacion.id }}">
                         {% include 'parciales/icono.html' with nombre='factura' %} Generar factura
                     </a>
                 </div>

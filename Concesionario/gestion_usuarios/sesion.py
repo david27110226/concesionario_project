@@ -60,7 +60,7 @@ def registrar_auditoria(request, accion, modulo, descripcion, exitoso=True, usua
 
 
 def vendedor_actual(request):
-    """DetalleVendedor embebido con los datos del usuario que tiene la sesión."""
+    """ResumenUsuario (vendedor / creado_por) con los datos del usuario que tiene la sesión."""
     datos = request.session['usuario']
     return {
         'nombre_usuario': datos['nombre_usuario'],

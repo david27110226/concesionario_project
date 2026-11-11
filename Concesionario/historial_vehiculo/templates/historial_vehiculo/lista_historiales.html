@@ -3,7 +3,12 @@
 {% block titulo_pagina %}Historial de vehículos{% endblock %}
 {% block miga %}Historial{% endblock %}
 {% block titulo %}Historial de vehículos{% endblock %}
-{% block subtitulo %}Dueños anteriores y mantenimientos de los {{ total }} vehículo{{ total|pluralize }} del inventario.{% endblock %}
+{% block subtitulo %}Dueños anteriores, mantenimientos y siniestros de los {{ total }} vehículo{{ total|pluralize }} del inventario.{% endblock %}
+{% block acciones %}
+    <a class="boton boton-secundario" href="{% url 'historial:lista_mantenimientos' %}">
+        {% include 'parciales/icono.html' with nombre='historial' %} Todos los mantenimientos
+    </a>
+{% endblock %}
 
 {% block contenido %}
 <div class="tarjeta">
@@ -17,7 +22,7 @@
     <div class="tabla-contenedor">
         <table>
             <thead>
-                <tr><th>Vehículo</th><th class="texto-derecha">Dueños anteriores</th><th class="texto-derecha">Mantenimientos</th><th>Último servicio</th><th class="texto-derecha">Costo total</th></tr>
+                <tr><th>Vehículo</th><th class="texto-derecha">Dueños anteriores</th><th class="texto-derecha">Mantenimientos</th><th class="texto-derecha">Siniestros</th><th>Último servicio</th><th class="texto-derecha">Costo total</th></tr>
             </thead>
             <tbody>
             {% for fila in filas %}
@@ -26,6 +31,7 @@
                         <span class="texto-suave texto-pequeno">{{ fila.vehiculo.placa }}</span></td>
                     <td class="texto-derecha">{{ fila.duenos }}</td>
                     <td class="texto-derecha">{{ fila.mantenimientos }}</td>
+                    <td class="texto-derecha">{{ fila.siniestros }}</td>
                     <td class="texto-suave">{{ fila.ultimo|date:"d M Y"|default:"—" }}</td>
                     <td class="texto-derecha monto">${{ fila.costo|floatformat:0 }}</td>
                 </tr>

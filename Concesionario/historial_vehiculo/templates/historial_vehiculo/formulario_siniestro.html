@@ -1,0 +1,15 @@
+{% extends 'layout.html' %}
+
+{% block titulo_pagina %}{{ titulo }}{% endblock %}
+{% block miga %}<a href="{% url 'historial:lista_historiales' %}">Historial</a> / <a href="{% url 'historial:detalle_historial' vehiculo.id %}">{{ vehiculo.placa }}</a> / Siniestro{% endblock %}
+{% block titulo %}{{ titulo }}{% endblock %}
+{% block subtitulo %}{{ vehiculo.marca }} {{ vehiculo.modelo }} {{ vehiculo.anio|stringformat:"d" }} · Placa {{ vehiculo.placa }}. Choque, robo u otro evento que afectó al vehículo.{% endblock %}
+
+{% block contenido %}
+{% url 'historial:detalle_historial' vehiculo.id as cancelar %}
+<div class="tarjeta formulario-tarjeta">
+    <form method="post" class="tarjeta-cuerpo">
+        {% include 'parciales/formulario.html' with url_cancelar=cancelar %}
+    </form>
+</div>
+{% endblock %}

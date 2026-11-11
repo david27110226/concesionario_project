@@ -3,10 +3,10 @@
 {% block titulo_pagina %}{{ titulo }}{% endblock %}
 {% block miga %}<a href="{% url 'ventas:lista_cotizaciones' %}">Cotizaciones</a> / Formulario{% endblock %}
 {% block titulo %}{{ titulo }}{% endblock %}
-{% block subtitulo %}{% if cotizacion %}{{ cotizacion.vehiculo.marca }} {{ cotizacion.vehiculo.modelo }} ({{ cotizacion.vehiculo.placa }}) para {{ cliente.nombre }} {{ cliente.apellido }}.{% else %}Tú quedas como asesor de la cotización. Se guarda dentro del cliente.{% endif %}{% endblock %}
+{% block subtitulo %}{% if cotizacion %}{{ cotizacion.vehiculo.marca }} {{ cotizacion.vehiculo.modelo }} ({{ cotizacion.vehiculo.placa }}) para {{ cliente.nombre }} {{ cliente.apellido }}.{% else %}Tú quedas como asesor de la cotización. Se guarda en la colección de cotizaciones.{% endif %}{% endblock %}
 
 {% block contenido %}
-{% if cotizacion %}{% url 'ventas:detalle_cotizacion' cliente.id indice as cancelar %}{% else %}{% url 'ventas:lista_cotizaciones' as cancelar %}{% endif %}
+{% if cotizacion %}{% url 'ventas:detalle_cotizacion' cotizacion.id as cancelar %}{% else %}{% url 'ventas:lista_cotizaciones' as cancelar %}{% endif %}
 <div class="tarjeta formulario-tarjeta">
     <form method="post" class="tarjeta-cuerpo">
         {% include 'parciales/formulario.html' with url_cancelar=cancelar %}
